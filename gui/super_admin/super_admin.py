@@ -10,12 +10,14 @@ import re
 
 import subprocess
 from PyQt5 import QtWidgets, uic, QtGui, QtCore
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QLabel, QWidget, QTabWidget
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QLabel, QWidget, QTabWidget, QFrame
 from PyQt5.QtCore import QTimer, QStringListModel
 import rclpy as rp
 from rclpy.node import Node
 from std_msgs.msg import String
-#from gui.super_admin.battery_listener import BatteryListener
+from view_3D import IMUVisualization
+
+#from gui.super_admin.super_topic import TopicSubscriber
 
 host = "192.168.0.4"  # 접속할 SSH 서버의 IP 주소나 도메인
 username = "storagy"  # SSH 접속에 사용할 사용자 이름
@@ -37,6 +39,8 @@ class MainWindow(QMainWindow):
     def __init__(self, ros_node):
         super().__init__()
         self.ros_node = ros_node
+        #self.view_3D = IMUVisualization
+        #print(IMUVisualization)
 
         self.setWindowTitle("ROS2 Monitor with Bandwidth and Frequency")
 
@@ -69,10 +73,53 @@ class MainWindow(QMainWindow):
        # super_admin.ui를 main_tab에 추가
         self.main_layout.addWidget(self.s_admin)
 
+        #위젯 찾기
+        self.view_3d_dep = self.s_admin.findChild(QWidget, "view_3d_dep")
+
+        if self.view_3d_dep is None:
+            raise ValueError("Error: 'view_3d_dep' widget not found. Check the UI file and widget name.")
+
+        # 레이아웃 가져오기 또는 새로 설정
+        if self.view_3d_dep.layout() is None:
+            print("Setting new layout for 'view_3d_2'.")
+            self.view_3d_dep_layout = QVBoxLayout(self.view_3d_dep)  # QVBoxLayout 또는 원하는 레이아웃 사용
+            self.view_3d_dep.setLayout(self.view_3d_dep_layout)
+        else:
+            self.view_3d_dep_layout = self.view_3d_dep.layout()
+
+        self.view_3d_dep_layout = self.view_3d_dep.layout()
+        self.imu_widget_dep = IMUVisualization()
+        self.view_3d_dep_layout.addWidget(self.imu_widget_dep)
+
+        #위젯 찾기
+        self.view_3d_lidar = self.s_admin.findChild(QWidget, "view_3d_lidar")
+
+        if self.view_3d_lidar is None:
+            raise ValueError("Error: 'view_3d_lidar' widget not found. Check the UI file and widget name.")
+
+        # 레이아웃 가져오기 또는 새로 설정
+        if self.view_3d_lidar.layout() is None:
+            print("Setting new layout for 'view_3d_2'.")
+            self.view_3d_dep_layout = QVBoxLayout(self.view_3d_lidar)  # QVBoxLayout 또는 원하는 레이아웃 사용
+            self.view_3d_lidar.setLayout(self.view_3d_dep_layout)
+        else:
+            self.view_3d_dep_layout = self.view_3d_lidar.layout()
+
+        self.view_3d_lidar_layout = self.view_3d_lidar.layout()
+        self.imu_widget_lidar = IMUVisualization()
+        self.view_3d_lidar_layout.addWidget(self.imu_widget_lidar)
+
+        
+
+      
+
+
+
+
         # 창을 최대화된 상태로 표시
         self.showMaximized()
 
-
+        '''
         # 토픽 정보 탭
         self.topic_tab = QWidget()
         self.tabs.addTab(self.topic_tab, "토픽")
@@ -84,6 +131,18 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.service_tab, "서비스")
         self.service_layout = QVBoxLayout()
         self.service_tab.setLayout(self.service_layout)
+        '''
+
+        tap_list = ["토픽", "서비스", "센서,카메라", "네비게이션", "로봇 상태 및 제어", "지도 및 위치", "기타 이벤트 및 상태"]
+        for tap in tap_list:
+            self.service_tab = QWidget()
+            self.tabs.addTab(self.service_tab, tap)
+            self.service_layout = QVBoxLayout()
+            self.service_tab.setLayout(self.service_layout)
+
+
+
+
 
         # 타이머 설정 (주기적으로 갱신)
         self.timer = QTimer()
