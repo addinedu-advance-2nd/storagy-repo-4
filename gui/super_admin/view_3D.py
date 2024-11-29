@@ -96,15 +96,16 @@ class IMUVisualization(QWidget):
         # 데이터를 갱신하여 3D 플롯에 그리기
         self.ax.clear()  # 기존 플롯을 지우고
 
-        x, y, z = self.get_imu_data()
+        self.x_data, self.y_data, self.z_data = self.get_imu_data()
+        # x, y, z = self.get_imu_data()
                 # Append new data to the lists
         #self.x_data.append(x)
         #self.y_data.append(y)
         #self.z_data.append(z)
 
-        self.x_data = x
-        self.y_data = y
-        self.z_data = z
+        #self.x_data = x
+        #self.y_data = y
+        #self.z_data = z
 
         # node_name에 따라 다른 데이터를 시각화
         if self.node_name == 'depth_camera':
@@ -115,7 +116,7 @@ class IMUVisualization(QWidget):
             self.ax.scatter(self.x_data, self.y_data, self.z_data, c='r', s=50)
         else:
             # test
-            self.ax.scatter(self.x_data, self.y_data, self.z_data, c='b', s=10)
+            self.ax.scatter(self.x_data, self.y_data, self.z_data, c='b', s=1)
 
         self.ax.set_xlabel('X')
         self.ax.set_ylabel('Y')
@@ -133,10 +134,23 @@ class IMUVisualization(QWidget):
     def get_imu_data(self):
         # Simulate IMU data. Replace this with actual sensor readings.
         # For demonstration, generate random data within a range
-        x = random.uniform(-10, 10)
-        y = random.uniform(-10, 10)
-        z = random.uniform(-10, 10)
-        return x, y, z
+        #x = random.uniform(-10, 10)
+        #y = random.uniform(-10, 10)
+        #z = random.uniform(-10, 10)
+        x_data=[]
+        y_data=[]
+        z_data=[]
+        i=0
+        for i in range(0,501):
+            x = random.uniform(-10, 10)
+            y = random.uniform(-10, 10)
+            z = random.uniform(-10, 10)
+            x_data.append(x)
+            y_data.append(y)
+            z_data.append(z)
+            
+
+        return x_data, y_data, z_data
 
 
 
