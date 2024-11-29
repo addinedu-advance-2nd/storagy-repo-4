@@ -17,6 +17,8 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from geometry_msgs.msg import Twist
 from view_3D import IMUVisualization
+from ros_monitor import Ros2MonitorNode
+
 
 #from gui.super_admin.super_topic import TopicSubscriber
 
@@ -25,92 +27,12 @@ username = "storagy"  # SSH 접속에 사용할 사용자 이름
 password = "123412"   # SSH 접속에 사용할 비밀번호
 
 
-class Ros2MonitorNode(Node):
-    def __init__(self):
-        super().__init__('ros2_monitor_node')
-        self.topic_list = []  # 현재 실행 중인 토픽 목록
-        #self.battery_listener()
-
-    def update_topics(self):
-        # 현재 활성화된 토픽 목록 갱신
-        self.topic_list = self.get_topic_names_and_types()
-        #print(self.topic_list)
-
-    def battery_listener(self):
-        self.subscription = self.create_subscription(
-            String,           # 구독할 메시지 타입
-            '/battery_voltage',       # 구독할 토픽 이름
-            self.listener_callback, # 콜백 함수
-            10                       # 큐 크기
-        )
-
-    def listener_callback(self, msg):
-        # 토픽에서 받은 배터리 상태 메시지를 처리
-        #print(msg)
-
-        # String 메시지에서 데이터를 추출하고 소수점 두 번째 자리까지 반올림
-        try:
-            voltage = float(msg.data)  # 문자열을 float로 변환
-            voltage_rounded = round(voltage, 2)  # 소수점 두 번째 자리까지 반올림
-            self.get_logger().info(f"Battery voltage: {voltage_rounded} V")
-            # s_admin에서 QLabel인 volt에 값 출력
-            print(voltage_rounded)
-            #self.s_admin.battery_voltage.setText(f"배터리 전압 : {voltage_rounded} V")
-        except ValueError:
-            self.get_logger().error(f"Received invalid data: {msg.data}")
-            # s_admin에서 QLabel인 volt에 값 출력
-            self.s_admin.battery_voltage.setText(f"Received invalid data: {msg.data}")
-        #self.get_logger().info(f"Battery voltage: {msg.voltage} V")
-
-    # 로봇의 속도 명령
-    def cmd_vel_listener(self):
-        self.subscription = self.create_subscription(
-            Twist,           # 구독할 메시지 타입
-            '/cmd_vel',       # 구독할 토픽 이름
-            self.cmd_vel_callback, # 콜백 함수
-            10                       # 큐 크기
-        )
-
-    def cmd_vel_callback(self, msg):
-        # 로그를 출력하는 부분
-        logger = self.get_logger()
-        
-        # Linear 및 Angular 속도 값을 로그로 출력
-        logger.info(f"Linear Velocity - x: {msg.linear.x}, y: {msg.linear.y}, z: {msg.linear.z}")
-        logger.info(f"Angular Velocity - x: {msg.angular.x}, y: {msg.angular.y}, z: {msg.angular.z}")
-        # ui로 출력
-        self.s_admin.cmd_vel.setText(f"Received invalid data: {msg.data}")
-        self.s_admin.cmd_vel.setText("test")
-
-
-    # 네비게이션을 위한 속도 명령
-    def cmd_vel_nav_listener(self):
-        self.subscription = self.create_subscription(
-            Twist,           # 구독할 메시지 타입
-            '/cmd_vel_nav',       # 구독할 토픽 이름
-            self.cmd_vel_callback, # 콜백 함수
-            10                       # 큐 크기
-        )
-
-    def cmd_vel_nav_callback(self, msg):
-        # 로그를 출력하는 부분
-        logger = self.get_logger()
-        
-        # Linear 및 Angular 속도 값을 로그로 출력
-        logger.info(f"Nav Linear Velocity - x: {msg.linear.x}, y: {msg.linear.y}, z: {msg.linear.z}")
-        logger.info(f"Nav Angular Velocity - x: {msg.angular.x}, y: {msg.angular.y}, z: {msg.angular.z}")
-        # ui로 출력
-        self.s_admin.cmd_vel_nav.setText(f"Received invalid data: {msg.data}")
-        self.s_admin.cmd_vel_nav.setText(f"test1")
-
-
 
 class MainWindow(QMainWindow):
-    def __init__(self, ros_node):
+    def __init__(self):
         super().__init__()
-        self.ros_node = ros_node
-        #self.view_3D = IMUVisualization
-        #print(IMUVisualization)
+        #self.ros_node = ros_node
+
 
         self.setWindowTitle("ROS2 Monitor with Bandwidth and Frequency")
 
@@ -119,6 +41,18 @@ class MainWindow(QMainWindow):
         ui_path = os.path.join(base_dir, "../super_admin/super_admin.ui")  # 파일 위치를 정확히 지정
 
         self.s_admin = uic.loadUi(ui_path)
+
+        rp.init()
+        ros_node = Ros2MonitorNode(self.s_admin)
+
+        #self.view_3D = IMUVisualization()
+        #print(IMUVisualization)
+
+        # PyQt GUI와 ROS2 노드 병렬 실행
+        timer = QTimer()
+        timer.timeout.connect(lambda: rp.spin_once(ros_node, timeout_sec=0.01))
+        #timer.timeout.connect(lambda: rp.spin_once(battery_listener, timeout_sec=0.01))
+        timer.start(10)  # 10ms마다 ROS2 노드 갱신
         
 
         self.led_label = self.s_admin.findChild(QLabel, "led_label")
@@ -379,22 +313,23 @@ class MainWindow(QMainWindow):
 
 def main():
     # ROS2 초기화
-    rp.init()
-    ros_node = Ros2MonitorNode()
+    #rp.init()
+    #ros_node = Ros2MonitorNode()
 
     # 배터리 상태 구독 노드 생성 및 실행
     #battery_listener = BatteryListener()
 
     # PyQt 애플리케이션 초기화
     app = QApplication(sys.argv)
-    window = MainWindow(ros_node)
+    window = MainWindow()
     window.show()
 
     # PyQt GUI와 ROS2 노드 병렬 실행
-    timer = QTimer()
-    timer.timeout.connect(lambda: rp.spin_once(ros_node, timeout_sec=0.01))
+    #timer = QTimer()
+    #timer.timeout.connect(lambda: rp.spin_once(ros_node, timeout_sec=0.01))
     #timer.timeout.connect(lambda: rp.spin_once(battery_listener, timeout_sec=0.01))
-    timer.start(10)  # 10ms마다 ROS2 노드 갱신
+    
+    #timer.start(10)  # 10ms마다 ROS2 노드 갱신
 
     app.exec_()
 
@@ -403,7 +338,7 @@ def main():
 
     # 애플리케이션 종료 시 ROS2 노드 종료
     #battery_listener.destroy_node()
-    ros_node.destroy_node()
+    #ros_node.destroy_node()
     rp.shutdown()
 
 

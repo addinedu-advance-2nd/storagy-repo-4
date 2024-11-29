@@ -2,9 +2,9 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 
-class BatteryListener(Node):
+class TopicListener(Node):
     def __init__(self, topic_name, s_admin=None):
-        super().__init__('battery_listener')
+        super().__init__()
         self.topic_name = topic_name  # 구독할 토픽 이름
         self.s_admin = s_admin  # QLabel 등 UI 객체 참조
         self.subscription = self.create_subscription(
