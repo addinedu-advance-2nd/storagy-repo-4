@@ -1,37 +1,46 @@
-# main.py
-import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QFrame
-from view_3D import IMUVisualization  # 기존 코드 파일을 `imu_visualization.py`로 저장했다고 가정
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
 
-class MainApp(QMainWindow):
+class BatterySubscriber(Node):
+
     def __init__(self):
-        super().__init__()
+        super().__init__('battery_subscriber')
+        # 배터리 상태를 구독합니다.
+        self.subscription = self.create_subscription(
+            String,
+            '/battery_voltage',  # 구독할 토픽 이름
+            self.battery_callback,
+            10
+        )
 
-        self.setWindowTitle("IMU Visualization Viewer")
-        self.setGeometry(200, 200, 800, 600)
+    def battery_callback(self, msg):
+        # 배터리 상태 정보를 터미널에 출력합니다.
+        print(msg)
+        '''
+        voltage = msg.voltage
+        current = msg.current
+        charge = msg.charge
+        percentage = msg.percentage
 
-        # 중앙 위젯 설정
-        central_widget = QWidget(self)
-        self.setCentralWidget(central_widget)
+        self.get_logger().info(f"Voltage: {voltage} V")
+        self.get_logger().info(f"Current: {current} A")
+        self.get_logger().info(f"Charge: {charge} Ah")
+        self.get_logger().info(f"Percentage: {percentage * 100}%")
+        '''
 
-        # 레이아웃 설정
-        layout = QVBoxLayout(central_widget)
+def main(args=None):
+    rclpy.init(args=args)
 
-        # QFrame으로 컨테이너 추가
-        imu_frame = QFrame(self)
-        imu_frame.setFrameShape(QFrame.Box)  # 테두리 설정
-        imu_frame.setLineWidth(2)
-        imu_frame_layout = QVBoxLayout(imu_frame)
+    # 노드 생성
+    battery_subscriber = BatterySubscriber()
 
-        # IMUVisualization 위젯 추가
-        self.imu_widget = IMUVisualization()
-        imu_frame_layout.addWidget(self.imu_widget)
+    # 노드 실행
+    rclpy.spin(battery_subscriber)
 
-        # IMU Frame을 메인 레이아웃에 추가
-        layout.addWidget(imu_frame)
+    # 종료
+    battery_subscriber.destroy_node()
+    rclpy.shutdown()
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    main_window = MainApp()
-    main_window.show()
-    sys.exit(app.exec_())
+    main()

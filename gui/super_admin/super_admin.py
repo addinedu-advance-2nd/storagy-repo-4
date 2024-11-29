@@ -15,11 +15,12 @@ from PyQt5.QtCore import QTimer, QStringListModel
 import rclpy as rp
 from rclpy.node import Node
 from std_msgs.msg import String
+from geometry_msgs.msg import Twist
 from view_3D import IMUVisualization
 
 #from gui.super_admin.super_topic import TopicSubscriber
 
-host = "192.168.0.4"  # 접속할 SSH 서버의 IP 주소나 도메인
+host = "192.168.0.2"  # 접속할 SSH 서버의 IP 주소나 도메인
 username = "storagy"  # SSH 접속에 사용할 사용자 이름
 password = "123412"   # SSH 접속에 사용할 비밀번호
 
@@ -28,11 +29,80 @@ class Ros2MonitorNode(Node):
     def __init__(self):
         super().__init__('ros2_monitor_node')
         self.topic_list = []  # 현재 실행 중인 토픽 목록
+        #self.battery_listener()
 
     def update_topics(self):
         # 현재 활성화된 토픽 목록 갱신
         self.topic_list = self.get_topic_names_and_types()
         #print(self.topic_list)
+
+    def battery_listener(self):
+        self.subscription = self.create_subscription(
+            String,           # 구독할 메시지 타입
+            '/battery_voltage',       # 구독할 토픽 이름
+            self.listener_callback, # 콜백 함수
+            10                       # 큐 크기
+        )
+
+    def listener_callback(self, msg):
+        # 토픽에서 받은 배터리 상태 메시지를 처리
+        #print(msg)
+
+        # String 메시지에서 데이터를 추출하고 소수점 두 번째 자리까지 반올림
+        try:
+            voltage = float(msg.data)  # 문자열을 float로 변환
+            voltage_rounded = round(voltage, 2)  # 소수점 두 번째 자리까지 반올림
+            self.get_logger().info(f"Battery voltage: {voltage_rounded} V")
+            # s_admin에서 QLabel인 volt에 값 출력
+            print(voltage_rounded)
+            #self.s_admin.battery_voltage.setText(f"배터리 전압 : {voltage_rounded} V")
+        except ValueError:
+            self.get_logger().error(f"Received invalid data: {msg.data}")
+            # s_admin에서 QLabel인 volt에 값 출력
+            self.s_admin.battery_voltage.setText(f"Received invalid data: {msg.data}")
+        #self.get_logger().info(f"Battery voltage: {msg.voltage} V")
+
+    # 로봇의 속도 명령
+    def cmd_vel_listener(self):
+        self.subscription = self.create_subscription(
+            Twist,           # 구독할 메시지 타입
+            '/cmd_vel',       # 구독할 토픽 이름
+            self.cmd_vel_callback, # 콜백 함수
+            10                       # 큐 크기
+        )
+
+    def cmd_vel_callback(self, msg):
+        # 로그를 출력하는 부분
+        logger = self.get_logger()
+        
+        # Linear 및 Angular 속도 값을 로그로 출력
+        logger.info(f"Linear Velocity - x: {msg.linear.x}, y: {msg.linear.y}, z: {msg.linear.z}")
+        logger.info(f"Angular Velocity - x: {msg.angular.x}, y: {msg.angular.y}, z: {msg.angular.z}")
+        # ui로 출력
+        self.s_admin.cmd_vel.setText(f"Received invalid data: {msg.data}")
+        self.s_admin.cmd_vel.setText("test")
+
+
+    # 네비게이션을 위한 속도 명령
+    def cmd_vel_nav_listener(self):
+        self.subscription = self.create_subscription(
+            Twist,           # 구독할 메시지 타입
+            '/cmd_vel_nav',       # 구독할 토픽 이름
+            self.cmd_vel_callback, # 콜백 함수
+            10                       # 큐 크기
+        )
+
+    def cmd_vel_nav_callback(self, msg):
+        # 로그를 출력하는 부분
+        logger = self.get_logger()
+        
+        # Linear 및 Angular 속도 값을 로그로 출력
+        logger.info(f"Nav Linear Velocity - x: {msg.linear.x}, y: {msg.linear.y}, z: {msg.linear.z}")
+        logger.info(f"Nav Angular Velocity - x: {msg.angular.x}, y: {msg.angular.y}, z: {msg.angular.z}")
+        # ui로 출력
+        self.s_admin.cmd_vel_nav.setText(f"Received invalid data: {msg.data}")
+        self.s_admin.cmd_vel_nav.setText(f"test1")
+
 
 
 class MainWindow(QMainWindow):
@@ -88,7 +158,7 @@ class MainWindow(QMainWindow):
             self.view_3d_dep_layout = self.view_3d_dep.layout()
 
         self.view_3d_dep_layout = self.view_3d_dep.layout()
-        self.imu_widget_dep = IMUVisualization()
+        self.imu_widget_dep = IMUVisualization("/camera/depth/image_raw")
         self.view_3d_dep_layout.addWidget(self.imu_widget_dep)
 
         #위젯 찾기
@@ -106,15 +176,8 @@ class MainWindow(QMainWindow):
             self.view_3d_dep_layout = self.view_3d_lidar.layout()
 
         self.view_3d_lidar_layout = self.view_3d_lidar.layout()
-        self.imu_widget_lidar = IMUVisualization()
+        self.imu_widget_lidar = IMUVisualization("/scan")
         self.view_3d_lidar_layout.addWidget(self.imu_widget_lidar)
-
-        
-
-      
-
-
-
 
         # 창을 최대화된 상태로 표시
         self.showMaximized()
@@ -146,34 +209,18 @@ class MainWindow(QMainWindow):
 
         # 타이머 설정 (주기적으로 갱신)
         self.timer = QTimer()
-        self.timer.timeout.connect(self.update_ui)
+        #self.timer.timeout.connect(self.update_ui)
         self.timer.start(3000)  # 1초마다 실행
 
         # SSH 연결 확인을 위한 타이머 설정 (예시: 5초마다 연결 시도)
         self.timer_1 = QTimer(self)
         self.timer_1.timeout.connect(self.check_ssh_connection)
-        self.timer_1.timeout.connect(self.battery_listener)
+        #self.timer_1.timeout.connect(self.battery_listener)
+        #self.timer_1.timeout.connect(self.cmd_vel_listener)
+        #self.timer_1.timeout.connect(self.cmd_vel_nav_listener)
         self.timer_1.start(5000)  # 5초마다 체크
 
-
-
-
     '''
-    def run_ros2_command(self, command):
-        """
-        ROS2 명령어를 실행하고 결과를 반환
-        """
-        try:
-            result = subprocess.run(
-                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-            )
-            if result.returncode != 0:
-                return f"Error: {result.stderr.strip()}"
-            return result.stdout.strip()
-        except Exception as e:
-            return f"Error: {e}"
-    '''
-
     def find_topic_label(self, topic):
         # 이미 존재하는 토픽 레이블을 찾음
         for i in range(self.topic_layout.count()):
@@ -197,6 +244,7 @@ class MainWindow(QMainWindow):
             if isinstance(widget, QLabel) and widget.text().startswith(f"  Frequency: {topic}"):
                 return widget
         return None
+    '''
     
     def list_topics(self):
         # 활성화된 토픽들의 이름과 타입을 가져옴
@@ -206,6 +254,8 @@ class MainWindow(QMainWindow):
         for topic, types in topic_names_and_types:
             self.get_logger().info(f"토픽: {topic}, 타입: {', '.join(types)}")
 
+
+    
     def update_ui(self):
         # ROS2 노드에서 최신 토픽 데이터 가져오기
         self.ros_node.update_topics()
@@ -236,47 +286,6 @@ class MainWindow(QMainWindow):
         topic_list_str = '\n'.join(topic_list)
         self.s_admin.topic_list.setText(topic_list_str)
 
-
-    '''
-    def print_topic_names(self):
-        topics = self.get_topic_names_and_types()
-        for name, _ in topics:
-            print(name)
-
-
-
-        
-        # 각 토픽에 대해 대역폭 및 전송 속도 정보 추가
-        for topic, _ in self.ros_node.topic_list:
-            # 기존 레이블을 업데이트
-            topic_label = self.find_topic_label(topic)
-            if not topic_label:
-                topic_label = QLabel(f"Topic: {topic}")
-                self.topic_layout.addWidget(topic_label)
-
-           
-            # 대역폭 정보
-            bw_command = ["ros2", "topic", "bw", topic]
-            bw_result = self.run_ros2_command(bw_command)
-            bw_label = self.find_bw_label(topic)
-            if not bw_label:
-                bw_label = QLabel(f"  Bandwidth: {bw_result}")
-                self.topic_layout.addWidget(bw_label)
-            else:
-                bw_label.setText(f"  Bandwidth: {bw_result}")
-            
-
-            # 메시지 전송 속도 정보
-            hz_command = ["ros2", "topic", "hz", topic]
-            hz_result = self.run_ros2_command(hz_command)
-            hz_label = self.find_hz_label(topic)
-            if not hz_label:
-                hz_label = QLabel(f"  Frequency: {hz_result}")
-                self.topic_layout.addWidget(hz_label)
-            else:
-                hz_label.setText(f"  Frequency: {hz_result}")
-
-         '''
             
     def check_ssh_connection(self):
 
@@ -365,67 +374,7 @@ class MainWindow(QMainWindow):
         return ssid, ip_addresses[2]
     
 
-    def battery_listener(self):
-        self.subscription = self.create_subscription(
-            String,           # 구독할 메시지 타입
-            '/battery_voltage',       # 구독할 토픽 이름
-            self.listener_callback, # 콜백 함수
-            10                       # 큐 크기
-        )
-
-    def listener_callback(self, msg):
-        # 토픽에서 받은 배터리 상태 메시지를 처리
-        print(msg)
-
-        # String 메시지에서 데이터를 추출하고 소수점 두 번째 자리까지 반올림
-        try:
-            voltage = float(msg.data)  # 문자열을 float로 변환
-            voltage_rounded = round(voltage, 2)  # 소수점 두 번째 자리까지 반올림
-            self.get_logger().info(f"Battery voltage: {voltage_rounded} V")
-            # s_admin에서 QLabel인 volt에 값 출력
-            #print(voltage_rounded)
-            #self.s_admin.battery_voltage.setText(f"배터리 전압 : {voltage_rounded} V")
-        except ValueError:
-            self.get_logger().error(f"Received invalid data: {msg.data}")
-            # s_admin에서 QLabel인 volt에 값 출력
-            self.s_admin.battery_voltage.setText(f"Received invalid data: {msg.data}")
-        #self.get_logger().info(f"Battery voltage: {msg.voltage} V")
-    '''
-class BatteryListener(Node):
-    def __init__(self):
-        super().__init__('battery_listener')
-
-        # s_admin은 외부에서 넘겨주는 객체 (UI 관련 객체)
-        #self.s_admin = s_admin
-
-        # '/battery_voltage' 토픽을 구독
-        self.subscription = self.create_subscription(
-            String,           # 구독할 메시지 타입
-            '/battery_voltage',       # 구독할 토픽 이름
-            self.listener_callback, # 콜백 함수
-            10                       # 큐 크기
-        )
-
-    def listener_callback(self, msg):
-        # 토픽에서 받은 배터리 상태 메시지를 처리
-        print(msg)
-
-        # String 메시지에서 데이터를 추출하고 소수점 두 번째 자리까지 반올림
-        try:
-            voltage = float(msg.data)  # 문자열을 float로 변환
-            voltage_rounded = round(voltage, 2)  # 소수점 두 번째 자리까지 반올림
-            self.get_logger().info(f"Battery voltage: {voltage_rounded} V")
-            # s_admin에서 QLabel인 volt에 값 출력
-            #print(voltage_rounded)
-            #self.s_admin.battery_voltage.setText(f"배터리 전압 : {voltage_rounded} V")
-        except ValueError:
-            self.get_logger().error(f"Received invalid data: {msg.data}")
-            # s_admin에서 QLabel인 volt에 값 출력
-            self.s_admin.battery_voltage.setText(f"Received invalid data: {msg.data}")
-        #self.get_logger().info(f"Battery voltage: {msg.voltage} V")
-'''
-
-            
+    
 
 
 def main():
@@ -450,12 +399,12 @@ def main():
     app.exec_()
 
         # ROS 2 이벤트 루프 실행
-    #rp.spin(battery_listener)
+    #rp.spin(ros_node)
 
     # 애플리케이션 종료 시 ROS2 노드 종료
     #battery_listener.destroy_node()
     ros_node.destroy_node()
-    #rp.shutdown()
+    rp.shutdown()
 
 
 if __name__ == "__main__":
