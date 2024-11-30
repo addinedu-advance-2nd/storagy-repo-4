@@ -1,5 +1,6 @@
-# paramiko 설치
-# pip install paramiko
+# paramiko 설치 : pip install paramiko
+# inputs 설치 : pip install inputs
+
 
 
 
@@ -7,6 +8,7 @@ import sys
 import os
 import paramiko
 import re
+import inputs  # 조이스틱 입력 라이브러리
 
 import subprocess
 from PyQt5 import QtWidgets, uic, QtGui, QtCore
@@ -18,6 +20,10 @@ from std_msgs.msg import String
 from geometry_msgs.msg import Twist
 from view_3D import IMUVisualization
 from ros_monitor import Ros2MonitorNode
+from cam_stream import CamStream
+#from storagy_control import StoragyControl
+from keyboard_control import KeyBoardControl
+from joystick_control import JoyStickControl
 
 
 #from gui.super_admin.super_topic import TopicSubscriber
@@ -77,44 +83,16 @@ class MainWindow(QMainWindow):
        # super_admin.ui를 main_tab에 추가
         self.main_layout.addWidget(self.s_admin)
 
-        #위젯 찾기
-        self.view_3d_dep = self.s_admin.findChild(QWidget, "view_3d_dep")
-
-        if self.view_3d_dep is None:
-            raise ValueError("Error: 'view_3d_dep' widget not found. Check the UI file and widget name.")
-
-        # 레이아웃 가져오기 또는 새로 설정
-        if self.view_3d_dep.layout() is None:
-            print("Setting new layout for 'view_3d_2'.")
-            self.view_3d_dep_layout = QVBoxLayout(self.view_3d_dep)  # QVBoxLayout 또는 원하는 레이아웃 사용
-            self.view_3d_dep.setLayout(self.view_3d_dep_layout)
-        else:
-            self.view_3d_dep_layout = self.view_3d_dep.layout()
-
-        self.view_3d_dep_layout = self.view_3d_dep.layout()
-        self.imu_widget_dep = IMUVisualization("/camera/depth/image_raw")
-        self.view_3d_dep_layout.addWidget(self.imu_widget_dep)
-
-        #위젯 찾기
-        self.view_3d_lidar = self.s_admin.findChild(QWidget, "view_3d_lidar")
-
-        if self.view_3d_lidar is None:
-            raise ValueError("Error: 'view_3d_lidar' widget not found. Check the UI file and widget name.")
-
-        # 레이아웃 가져오기 또는 새로 설정
-        if self.view_3d_lidar.layout() is None:
-            print("Setting new layout for 'view_3d_2'.")
-            self.view_3d_dep_layout = QVBoxLayout(self.view_3d_lidar)  # QVBoxLayout 또는 원하는 레이아웃 사용
-            self.view_3d_lidar.setLayout(self.view_3d_dep_layout)
-        else:
-            self.view_3d_dep_layout = self.view_3d_lidar.layout()
-
-        self.view_3d_lidar_layout = self.view_3d_lidar.layout()
-        self.imu_widget_lidar = IMUVisualization("/scan")
-        self.view_3d_lidar_layout.addWidget(self.imu_widget_lidar)
+        # 체크박스 시그널 연결
+        self.s_admin.dep_cam_view.stateChanged.connect(self.view_3d_dep_checkbox)
+        self.s_admin.lidar_view.stateChanged.connect(self.view_3d_lidar_checkbox)
+        self.s_admin.rgb_cam_view.stateChanged.connect(self.view_rgb_cam_checkbox)
+        self.s_admin.safety_check_button.stateChanged.connect(lambda state: None)
+        self.s_admin.keyboard_control_button.toggled.connect(self.check_conditions)
+        self.s_admin.joystick_control_button.toggled.connect(self.check_conditions)
 
         # 창을 최대화된 상태로 표시
-        self.showMaximized()
+        #self.showMaximized()
 
         '''
         # 토픽 정보 탭
@@ -153,6 +131,101 @@ class MainWindow(QMainWindow):
         #self.timer_1.timeout.connect(self.cmd_vel_listener)
         #self.timer_1.timeout.connect(self.cmd_vel_nav_listener)
         self.timer_1.start(5000)  # 5초마다 체크
+
+    def check_conditions(self):
+        # 안전 확인이 되어 있는지 먼저 확인
+        if self.s_admin.safety_check_button.isChecked() and self.s_admin.keyboard_control_button.isChecked():
+            print("안전 확인 됨, 키보드로 선택됨")
+            self.storagy_control = KeyBoardControl(self.s_admin)
+        elif self.s_admin.safety_check_button.isChecked() and self.s_admin.joystick_control_button.isChecked():
+            print("안전 확인됨, 조이스틱으로 선택됨")
+            self.storagy_control = JoyStickControl(self.s_admin)
+            #self.storagy_control = StoragyControl(self.s_admin, self.joystick)
+        else:
+            pass
+
+
+
+
+
+    def view_rgb_cam_checkbox(self, state):
+        if state == 2:  # 체크박스가 선택되었을 때
+            # CamStream 인스턴스 생성하여 카메라 스트리밍 시작
+            self.cam_stream = CamStream(self.s_admin)
+        else:
+            # 체크박스가 선택되지 않으면 화면 끄기
+            self.clear_camera_stream()
+
+    def clear_camera_stream(self):
+        # QLabel의 이미지를 비우는 방법으로 화면 지우기
+        self.s_admin.rgb_cam.clear()
+        
+        # 현재 실행 중인 카메라 스트리밍을 중지할 수 있다면, 중지하는 코드 추가
+        if hasattr(self, 'cam_stream'):
+            self.cam_stream.camera_thread.stop()
+            del self.cam_stream
+
+    def view_3d_lidar_checkbox(self, state):
+        #위젯 찾기
+        self.view_3d_lidar = self.s_admin.findChild(QWidget, "view_3d_lidar")
+
+        if self.view_3d_lidar is None:
+            raise ValueError("Error: 'view_3d_lidar' widget not found. Check the UI file and widget name.")
+
+        if state == 2:
+            # 레이아웃 가져오기 또는 새로 설정
+            if self.view_3d_lidar.layout() is None:
+                print("Setting new layout for 'view_3d_2'.")
+                self.view_3d_dep_layout = QVBoxLayout(self.view_3d_lidar)  # QVBoxLayout 또는 원하는 레이아웃 사용
+                self.view_3d_lidar.setLayout(self.view_3d_dep_layout)
+            else:
+                self.view_3d_dep_layout = self.view_3d_lidar.layout()
+
+            self.view_3d_lidar_layout = self.view_3d_lidar.layout()
+            self.imu_widget_lidar = IMUVisualization("/scan")
+            self.view_3d_lidar_layout.addWidget(self.imu_widget_lidar)
+        else:
+            if self.view_3d_dep.layout() is not None:
+                # 레이아웃의 모든 위젯 제거
+                while self.view_3d_lidar_layout.count():
+                    item = self.view_3d_lidar_layout.takeAt(0)
+                    widget = item.widget()
+                    if widget is not None:
+                        self.view_3d_lidar_layout.removeWidget(widget)  # 레이아웃에서 제거
+                        widget.deleteLater()  # 메모리에서 삭제
+                #print("All widgets removed from 'view_3d_dep'.")
+
+
+    def view_3d_dep_checkbox(self, state):
+        print(state)
+        #위젯 찾기
+        self.view_3d_dep = self.s_admin.findChild(QWidget, "view_3d_dep")
+
+        if self.view_3d_dep is None:
+            raise ValueError("Error: 'view_3d_dep' widget not found. Check the UI file and widget name.")
+
+        if state == 2:
+            # 레이아웃 가져오기 또는 새로 설정
+            if self.view_3d_dep.layout() is None:
+                print("Setting new layout for 'view_3d_2'.")
+                self.view_3d_dep_layout = QVBoxLayout(self.view_3d_dep)  # QVBoxLayout 또는 원하는 레이아웃 사용
+                self.view_3d_dep.setLayout(self.view_3d_dep_layout)
+            else:
+                self.view_3d_dep_layout = self.view_3d_dep.layout()
+
+            self.view_3d_dep_layout = self.view_3d_dep.layout()
+            self.imu_widget_dep = IMUVisualization("/camera/depth/image_raw")
+            self.view_3d_dep_layout.addWidget(self.imu_widget_dep)
+        else:
+            if self.view_3d_dep.layout() is not None:
+                # 레이아웃의 모든 위젯 제거
+                while self.view_3d_dep_layout.count():
+                    item = self.view_3d_dep_layout.takeAt(0)
+                    widget = item.widget()
+                    if widget is not None:
+                        self.view_3d_dep_layout.removeWidget(widget)  # 레이아웃에서 제거
+                        widget.deleteLater()  # 메모리에서 삭제
+                #print("All widgets removed from 'view_3d_dep'.")
 
     '''
     def find_topic_label(self, topic):

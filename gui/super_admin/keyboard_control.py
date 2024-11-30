@@ -1,9 +1,9 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
-from sensor_msgs.msg import Joy
-from PyQt5.QtWidgets import QMainWindow, QApplication, QPushButton, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QMainWindow, QApplication, QPushButton
 
+# RobotMover 클래스 (ROS 2 노드)
 class RobotMover(Node):
     def __init__(self):
         super().__init__('robot_mover')
@@ -18,46 +18,31 @@ class RobotMover(Node):
         self.get_logger().info(f'Publishing: linear.x={linear_x}, angular.z={angular_z}')
 
 
-class JoyTeleop(Node):
-    def __init__(self, robot_mover):
-        super().__init__('joy_teleop')
-        self.robot_mover = robot_mover
-        self.joy_subscriber = self.create_subscription(
-            Joy, '/joy', self.joy_callback, 10)
-
-    def joy_callback(self, msg):
-        # 왼쪽 스틱을 전진/후진 제어, 오른쪽 스틱을 회전 제어
-        linear_x = msg.axes[1]  # 왼쪽 스틱 Y축 (전진/후진)
-        angular_z = msg.axes[0]  # 오른쪽 스틱 X축 (회전)
-        
-        # 0.5와 -0.5 값으로 조정 (속도 제한)
-        linear_x = linear_x * 0.5
-        angular_z = angular_z * 1.0
-
-        # 로봇 제어 명령 보내기
-        self.robot_mover.send_command(linear_x, angular_z)
-
-class MainWindow(QMainWindow):
+# KeyBoardControl 클래스 (PyQt5 GUI, keyboard control)
+class KeyBoardControl(QMainWindow):
     def __init__(self, s_admin):
         super().__init__()
         self.s_admin = s_admin  # UI 파일 참조
         self.setWindowTitle("Robot Controller")
 
+        # 제어 방법 설정 (keyboard)
+        #self.control_state = state
+
         self.robot_mover = RobotMover()  # 로봇 제어 객체 생성
-        self.joy_teleop = JoyTeleop(self.robot_mover)  # 조이스틱 제어 객체 생성
+
         self.setup_ui()
 
     def setup_ui(self):
         self.setGeometry(100, 100, 400, 300)
 
-        # 버튼들 정의
-        self.forward_button = QPushButton('Forward', self)
-        self.backward_button = QPushButton('Backward', self)
-        self.left_button = QPushButton('Turn Left', self)
-        self.right_button = QPushButton('Turn Right', self)
-        self.stop_button = QPushButton('Stop', self)
-        self.rotate_left_button = QPushButton('Rotate Left', self)
-        self.rotate_right_button = QPushButton('Rotate Right', self)
+        # UI에서 버튼들을 가져와 연결
+        self.forward_button = self.s_admin.findChild(QPushButton, 'move_forward_button')
+        self.backward_button = self.s_admin.findChild(QPushButton, 'move_backward_button')
+        self.left_button = self.s_admin.findChild(QPushButton, 'turn_left_button')
+        self.right_button = self.s_admin.findChild(QPushButton, 'turn_right_button')
+        self.stop_button = self.s_admin.findChild(QPushButton, 'stop_button')
+        self.rotate_left_button = self.s_admin.findChild(QPushButton, 'rotate_left_button')
+        self.rotate_right_button = self.s_admin.findChild(QPushButton, 'rotate_right_button')
 
         # 버튼 클릭 이벤트 연결
         self.forward_button.clicked.connect(self.move_forward)
@@ -68,50 +53,48 @@ class MainWindow(QMainWindow):
         self.rotate_left_button.clicked.connect(self.rotate_left)
         self.rotate_right_button.clicked.connect(self.rotate_right)
 
-        # 레이아웃 설정
-        layout = QVBoxLayout()
-        layout.addWidget(self.forward_button)
-        layout.addWidget(self.backward_button)
-        layout.addWidget(self.left_button)
-        layout.addWidget(self.right_button)
-        layout.addWidget(self.stop_button)
-        layout.addWidget(self.rotate_left_button)
-        layout.addWidget(self.rotate_right_button)
-
-        container = QWidget()
-        container.setLayout(layout)
-        self.setCentralWidget(container)
-
     def move_forward(self):
+        print("키보드로 전진")
         self.robot_mover.send_command(linear_x=0.5)
 
     def move_backward(self):
+        print("키보드로 후진")
         self.robot_mover.send_command(linear_x=-0.5)
 
     def turn_left(self):
-        self.robot_mover.send_command(angular_z=0.5)
+        print("키보드로 좌회전")
+        self.robot_mover.send_command(linear_x=0.5, angular_z=0.5)
 
     def turn_right(self):
-        self.robot_mover.send_command(angular_z=-0.5)
+        print("키보드로 우회전")
+        self.robot_mover.send_command(linear_x=0.5, angular_z=-0.5)
 
     def stop(self):
+        print("키보드로 정지")
         self.robot_mover.send_command()
 
     def rotate_left(self):
+        print("키보드로 왼쪽 회전")
         self.robot_mover.send_command(angular_z=1.0)
 
     def rotate_right(self):
+        print("키보드로 오른쪽 회전")
         self.robot_mover.send_command(angular_z=-1.0)
 
+
+# 메인 함수
 def main():
     rclpy.init()  # ROS 2 초기화
 
     # PyQt5 애플리케이션 생성
     app = QApplication([])
 
-    # s_admin 객체를 전달하여 UI 생성 (UI 파일에서 참조된 객체)
+    # 실제 UI 객체를 여기에 전달해야 합니다.
     s_admin = None  # 실제 s_admin 객체를 여기에 대입해야 합니다.
-    window = MainWindow(s_admin)
+    
+    # 제어 방식 설정 (keyboard)
+    control_state = 'keyboard'
+    window = KeyBoardControl(s_admin)
     window.show()
 
     # PyQt5 이벤트 루프 실행
@@ -119,6 +102,7 @@ def main():
 
     # 종료 시 ROS 2 종료
     rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()

@@ -27,7 +27,7 @@
      <string>자동/수동</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="pushButton">
+   <widget class="QPushButton" name="move_forward_button">
     <property name="geometry">
      <rect>
       <x>1520</x>
@@ -40,7 +40,7 @@
      <string>앞</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="pushButton_2">
+   <widget class="QPushButton" name="move_backward_button">
     <property name="geometry">
      <rect>
       <x>1520</x>
@@ -53,7 +53,7 @@
      <string>뒤</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="pushButton_3">
+   <widget class="QPushButton" name="turn_left_button">
     <property name="geometry">
      <rect>
       <x>1400</x>
@@ -66,7 +66,7 @@
      <string>좌</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="pushButton_4">
+   <widget class="QPushButton" name="turn_right_button">
     <property name="geometry">
      <rect>
       <x>1640</x>
@@ -229,7 +229,7 @@
      <string>배터리 전압  :</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="pushButton_5">
+   <widget class="QPushButton" name="rotate_right_button">
     <property name="geometry">
      <rect>
       <x>1640</x>
@@ -242,7 +242,7 @@
      <string>우_회전</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="pushButton_6">
+   <widget class="QPushButton" name="rotate_left_button">
     <property name="geometry">
      <rect>
       <x>1400</x>
@@ -255,7 +255,7 @@
      <string>좌_회전</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="pushButton_7">
+   <widget class="QPushButton" name="stop_button">
     <property name="geometry">
      <rect>
       <x>1520</x>
@@ -294,20 +294,7 @@
      <string>최대 속도 설정(권장 속도 00~00m/s)</string>
     </property>
    </widget>
-   <widget class="QCheckBox" name="checkBox_2">
-    <property name="geometry">
-     <rect>
-      <x>1770</x>
-      <y>160</y>
-      <width>131</width>
-      <height>23</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>키보드/조이스틱</string>
-    </property>
-   </widget>
-   <widget class="QCheckBox" name="checkBox_3">
+   <widget class="QCheckBox" name="safety_check_button">
     <property name="geometry">
      <rect>
       <x>1400</x>
@@ -377,7 +364,7 @@
      <string>라이다</string>
     </property>
    </widget>
-   <widget class="QLabel" name="label_13">
+   <widget class="QLabel" name="rgb_cam">
     <property name="geometry">
      <rect>
       <x>130</x>
@@ -390,7 +377,7 @@
      <string>영상 준비 중...</string>
     </property>
    </widget>
-   <widget class="QCheckBox" name="checkBox_4">
+   <widget class="QCheckBox" name="rgb_cam_view">
     <property name="geometry">
      <rect>
       <x>220</x>
@@ -403,7 +390,7 @@
      <string>보기</string>
     </property>
    </widget>
-   <widget class="QCheckBox" name="checkBox_5">
+   <widget class="QCheckBox" name="dep_cam_view">
     <property name="geometry">
      <rect>
       <x>620</x>
@@ -416,7 +403,7 @@
      <string>보기</string>
     </property>
    </widget>
-   <widget class="QCheckBox" name="checkBox_6">
+   <widget class="QCheckBox" name="lidar_view">
     <property name="geometry">
      <rect>
       <x>1060</x>
@@ -669,6 +656,38 @@
     </property>
     <property name="text">
      <string>AMCL 알고리즘 단계 : </string>
+    </property>
+   </widget>
+   <widget class="QRadioButton" name="keyboard_control_button">
+    <property name="geometry">
+     <rect>
+      <x>1770</x>
+      <y>160</y>
+      <width>112</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>키보드</string>
+    </property>
+    <property name="checkable">
+     <bool>true</bool>
+    </property>
+    <property name="checked">
+     <bool>false</bool>
+    </property>
+   </widget>
+   <widget class="QRadioButton" name="joystick_control_button">
+    <property name="geometry">
+     <rect>
+      <x>1770</x>
+      <y>200</y>
+      <width>112</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>조이스틱</string>
     </property>
    </widget>
   </widget>
