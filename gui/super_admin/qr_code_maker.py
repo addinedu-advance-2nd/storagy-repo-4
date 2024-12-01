@@ -1,3 +1,5 @@
+# qrcode 설치 : pip install qrcode
+
 import qrcode
 
 # QR 코드 데이터
