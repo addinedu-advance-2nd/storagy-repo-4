@@ -2,8 +2,10 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from PyQt5.QtWidgets import QMainWindow, QApplication, QPushButton
+from PyQt5.QtCore import Qt, QThread
+import sys
 
-# RobotMover 클래스 (ROS 2 노드)
+# ROS 2 노드 (RobotMover)
 class RobotMover(Node):
     def __init__(self):
         super().__init__('robot_mover')
@@ -18,19 +20,35 @@ class RobotMover(Node):
         self.get_logger().info(f'Publishing: linear.x={linear_x}, angular.z={angular_z}')
 
 
-# KeyBoardControl 클래스 (PyQt5 GUI, keyboard control)
+# ROS 2 스핀을 실행할 스레드
+class RclpyThread(QThread):
+    def run(self):
+        rclpy.spin(self.node)  # ROS 2 spin을 별도의 스레드에서 실행
+
+    def __init__(self, node):
+        super().__init__()
+        self.node = node
+
+
+# PyQt GUI (KeyBoardControl)
 class KeyBoardControl(QMainWindow):
     def __init__(self, s_admin):
         super().__init__()
-        self.s_admin = s_admin  # UI 파일 참조
+        self.s_admin = s_admin
         self.setWindowTitle("Robot Controller")
 
-        # 제어 방법 설정 (keyboard)
-        #self.control_state = state
-
-        self.robot_mover = RobotMover()  # 로봇 제어 객체 생성
-
+        self.robot_mover = RobotMover()  # ROS 2 노드 초기화
         self.setup_ui()
+
+        # 포커스를 받을 수 있도록 설정
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.setFocus()  # 윈도우가 열리면 포커스 설정
+
+        # ROS 2 스핀을 위한 스레드 시작
+        self.rclpy_thread = RclpyThread(self.robot_mover)
+        self.rclpy_thread.start()
+
+        
 
     def setup_ui(self):
         self.setGeometry(100, 100, 400, 300)
@@ -54,32 +72,54 @@ class KeyBoardControl(QMainWindow):
         self.rotate_right_button.clicked.connect(self.rotate_right)
 
     def move_forward(self):
-        print("키보드로 전진")
+        print("전진")
         self.robot_mover.send_command(linear_x=0.5)
 
     def move_backward(self):
-        print("키보드로 후진")
+        print("후진")
         self.robot_mover.send_command(linear_x=-0.5)
 
     def turn_left(self):
-        print("키보드로 좌회전")
+        print("좌회전")
         self.robot_mover.send_command(linear_x=0.5, angular_z=0.5)
 
     def turn_right(self):
-        print("키보드로 우회전")
+        print("우회전")
         self.robot_mover.send_command(linear_x=0.5, angular_z=-0.5)
 
     def stop(self):
-        print("키보드로 정지")
+        print("정지")
         self.robot_mover.send_command()
 
     def rotate_left(self):
-        print("키보드로 왼쪽 회전")
+        print("왼쪽 회전")
         self.robot_mover.send_command(angular_z=1.0)
 
     def rotate_right(self):
-        print("키보드로 오른쪽 회전")
+        print("오른쪽 회전")
         self.robot_mover.send_command(angular_z=-1.0)
+
+    def keyPressEvent(self, event):
+        key = event.key()
+        print(f"Pressed key: {key}")
+
+        # 키보드 버튼에 따라 매핑된 버튼 클릭
+        if key == Qt.Key_1:
+            self.move_forward()
+        elif key == Qt.Key_S:
+            self.move_backward()
+        elif key == Qt.Key_A:
+            self.turn_left()
+        elif key == Qt.Key_D:
+            self.turn_right()
+        elif key == Qt.Key_Space:
+            self.stop()
+        elif key == Qt.Key_Q:
+            self.rotate_left()
+        elif key == Qt.Key_E:
+            self.rotate_right()
+        else:
+            super().keyPressEvent(event)
 
 
 # 메인 함수
@@ -89,12 +129,11 @@ def main():
     # PyQt5 애플리케이션 생성
     app = QApplication([])
 
-    # 실제 UI 객체를 여기에 전달해야 합니다.
-    s_admin = None  # 실제 s_admin 객체를 여기에 대입해야 합니다.
-    
+    # UI 객체를 전달해야 합니다. 실제 UI 객체를 사용하세요.
+    #s_admin = None  # 실제 s_admin 객체를 여기에 전달
+
     # 제어 방식 설정 (keyboard)
-    control_state = 'keyboard'
-    window = KeyBoardControl(s_admin)
+    window = KeyBoardControl()
     window.show()
 
     # PyQt5 이벤트 루프 실행
