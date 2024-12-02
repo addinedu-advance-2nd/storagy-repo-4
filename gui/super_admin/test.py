@@ -1,59 +1,72 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget
-from PyQt5.QtCore import Qt
+import pygame
+from PyQt5.QtWidgets import QApplication, QLabel, QMainWindow
+from PyQt5.QtCore import Qt, QTimer
 
-class MainWindow(QMainWindow):
+
+class JoystickWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.setWindowTitle("Joystick Ball Control")
+        self.setGeometry(100, 100, 800, 600)
 
-        self.setWindowTitle("Button and Keyboard Mapping")
-        
-        # 버튼 설정
-        self.button1 = QPushButton("Button 1")
-        self.button2 = QPushButton("Button 2")
-        self.button3 = QPushButton("Button 3")
+        # Ball position and radius
+        self.ball_x = self.width() // 2
+        self.ball_y = self.height() // 2
+        self.ball_radius = 20
+        self.ball_speed = 5
 
-        # 버튼 클릭 시 동작 설정
-        self.button1.clicked.connect(self.on_button1_click)
-        self.button2.clicked.connect(self.on_button2_click)
-        self.button3.clicked.connect(self.on_button3_click)
+        # Label for displaying the ball
+        self.ball_label = QLabel(self)
+        self.ball_label.setStyleSheet("background-color: red; border-radius: 20px;")
+        self.ball_label.setGeometry(
+            self.ball_x - self.ball_radius,
+            self.ball_y - self.ball_radius,
+            self.ball_radius * 2,
+            self.ball_radius * 2,
+        )
 
-        # 레이아웃 설정
-        layout = QVBoxLayout()
-        layout.addWidget(self.button1)
-        layout.addWidget(self.button2)
-        layout.addWidget(self.button3)
+        # Timer for updating joystick input
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_position)
+        self.timer.start(16)  # ~60 FPS
 
-        # 메인 위젯 설정
-        central_widget = QWidget()
-        central_widget.setLayout(layout)
-        self.setCentralWidget(central_widget)
-
-    def keyPressEvent(self, event):
-        key = event.key()
-
-        # 키보드 버튼에 따라 매핑된 버튼 클릭
-        if key == Qt.Key_1:
-            self.button1.click()
-        elif key == Qt.Key_2:
-            self.button2.click()
-        elif key == Qt.Key_3:
-            self.button3.click()
+        # Initialize pygame and joystick
+        pygame.init()
+        pygame.joystick.init()
+        if pygame.joystick.get_count() > 0:
+            self.joystick = pygame.joystick.Joystick(0)
+            self.joystick.init()
         else:
-            super().keyPressEvent(event)
+            self.joystick = None
+            print("No joystick detected.")
 
-    # 각 버튼 클릭 시 실행될 함수들
-    def on_button1_click(self):
-        print("Button 1 clicked")
+    def update_position(self):
+        if self.joystick:
+            pygame.event.pump()
 
-    def on_button2_click(self):
-        print("Button 2 clicked")
+            # Read joystick axes
+            axis_x = self.joystick.get_axis(0)  # X-axis
+            axis_y = self.joystick.get_axis(1)  # Y-axis
 
-    def on_button3_click(self):
-        print("Button 3 clicked")
+            # Update ball position based on joystick input
+            self.ball_x += int(axis_x * self.ball_speed)
+            self.ball_y += int(axis_y * self.ball_speed)
+
+            # Boundary checks
+            self.ball_x = max(self.ball_radius, min(self.width() - self.ball_radius, self.ball_x))
+            self.ball_y = max(self.ball_radius, min(self.height() - self.ball_radius, self.ball_y))
+
+            # Update ball label position
+            self.ball_label.move(self.ball_x - self.ball_radius, self.ball_y - self.ball_radius)
+
+    def closeEvent(self, event):
+        pygame.quit()
+        super().closeEvent(event)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = MainWindow()
+    window = JoystickWindow()
     window.show()
     sys.exit(app.exec_())
