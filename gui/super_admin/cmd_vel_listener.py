@@ -1,27 +1,30 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
+from geometry_msgs.msg import Twist
 
-class BatteryListener(Node):
+class CmdVelListener(Node):
     def __init__(self, s_admin):
-        super().__init__('battery_listener')  # 노드 이름 지정
+        super().__init__('cmd_vel_listener')  # 노드 이름 지정
         self.s_admin = s_admin
         #self.s_admin = s_admin  # QLabel 등 UI 객체 참조
         self.subscription = self.create_subscription(
-            String,
-            "/battery_voltage",
+            Twist,
+            "/cmd_vel",
             self.listener_callback,
             10  # 큐 크기
         )
         self.voltage = None
 
     def listener_callback(self, msg):
-        self.voltage = round(float(msg.data), 2)  # 문자열을 float로 변환하고 반올림
+        print(msg)
+        #self.voltage = round(float(msg.data), 2)  # 문자열을 float로 변환하고 반올림
         #self.get_logger().info(f"Battery voltage: {self.voltage} V")
         #print(voltage)
         #self.get_value(voltage)
         #return voltage
-        self.s_admin.battery_voltage.setText(f"배터리 잔량 : {self.voltage} %")
+        self.s_admin.cmd_vel.setText("a")
+        #self.s_admin.battery_voltage.setText(f"배터리 잔량 : {self.voltage} %")
         self.get_value()
 
     def get_value(self):
@@ -51,7 +54,7 @@ class BatteryListener(Node):
 def main(args=None):
     rclpy.init(args=args)
     #s_admin = None  # UI 객체 참조가 없는 경우 기본값 설정
-    node = BatteryListener()
+    node = CmdVelListener()
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()

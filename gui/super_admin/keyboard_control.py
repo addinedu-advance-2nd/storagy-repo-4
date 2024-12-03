@@ -131,10 +131,10 @@ def main():
     app = QApplication([])
 
     # UI 객체를 전달해야 합니다. 실제 UI 객체를 사용하세요.
-    #s_admin = None  # 실제 s_admin 객체를 여기에 전달
+    s_admin = None  # 실제 s_admin 객체를 여기에 전달
 
     # 제어 방식 설정 (keyboard)
-    window = KeyBoardControl()
+    window = KeyBoardControl(s_admin)
     window.show()
 
     # PyQt5 이벤트 루프 실행

@@ -25,6 +25,7 @@ from cam_stream import CamStream
 from keyboard_control import KeyBoardControl
 from joystick_control import JoyStickControl
 from battery_listener import BatteryListener
+from cmd_vel_listener import CmdVelListener
 
 
 #from gui.super_admin.super_topic import TopicSubscriber
@@ -36,19 +37,15 @@ password = "123412"   # SSH 접속에 사용할 비밀번호
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, s_admin):
         super().__init__()
         #self.ros_node = ros_node
+
+        self.s_admin = s_admin
 
 
         self.setWindowTitle("ROS2 Monitor with Bandwidth and Frequency")
 
-        # UI 로드 및 스택 위젯 설정
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        ui_path = os.path.join(base_dir, "../super_admin/super_admin.ui")  # 파일 위치를 정확히 지정
-
-        self.s_admin = uic.loadUi(ui_path)
-        
 
         self.led_label = self.s_admin.findChild(QLabel, "led_label")
 
@@ -340,18 +337,30 @@ def main():
 
     # PyQt 애플리케이션 초기화
     app = QApplication(sys.argv)
-    window = MainWindow()
+
+
+
+    # UI 로드 및 스택 위젯 설정
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    ui_path = os.path.join(base_dir, "../super_admin/super_admin.ui")  # 파일 위치를 정확히 지정
+
+    s_admin = uic.loadUi(ui_path)
+
+    window = MainWindow(s_admin)
     window.show()
+        
 
 
     # 배터리 상태 구독 노드 생성 및 실행
-    battery_listener = BatteryListener()
+    battery_listener = BatteryListener(s_admin)
+    cmd_vel_listener = CmdVelListener(s_admin)
     #self.bat = battery_listener
     print(battery_listener)
 
     timer = QTimer()
-    timer.timeout.connect(lambda: rp.spin_once(battery_listener, timeout_sec=0.01))
-    timer.start(100)  # 10ms마다 ROS2 노드 갱신
+    timer.timeout.connect(lambda: rp.spin_once(battery_listener, timeout_sec=1))
+    timer.timeout.connect(lambda: rp.spin_once(cmd_vel_listener, timeout_sec=1))
+    timer.start(1000)  # 100ms마다 ROS2 노드 갱신
 
  
     app.exec_()
