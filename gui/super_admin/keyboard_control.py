@@ -105,6 +105,7 @@ class KeyBoardControl(QMainWindow):
 
         # 키보드 버튼에 따라 매핑된 버튼 클릭
         if key == Qt.Key_1:
+            self.forward_button.click()
             self.move_forward()
         elif key == Qt.Key_S:
             self.move_backward()

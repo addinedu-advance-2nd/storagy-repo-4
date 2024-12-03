@@ -1,4 +1,13 @@
+더미 토픽
+ros2 topic pub /battery_voltage std_msgs/msg/String 'data: 20.91847038269043'
+
+
+
+
+
+
 토픽 리스트
+
 
 센서 및 카메라 관련 (Sensor and Camera Topics)
 /camera/color/camera_info: 컬러 카메라의 정보 (해상도, 카메라 내부 파라미터 등)

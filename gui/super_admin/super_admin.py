@@ -24,11 +24,12 @@ from cam_stream import CamStream
 #from storagy_control import StoragyControl
 from keyboard_control import KeyBoardControl
 from joystick_control import JoyStickControl
+from battery_listener import BatteryListener
 
 
 #from gui.super_admin.super_topic import TopicSubscriber
 
-host = "192.168.0.2"  # 접속할 SSH 서버의 IP 주소나 도메인
+host = "192.168.0.4"  # 접속할 SSH 서버의 IP 주소나 도메인
 username = "storagy"  # SSH 접속에 사용할 사용자 이름
 password = "123412"   # SSH 접속에 사용할 비밀번호
 
@@ -47,18 +48,6 @@ class MainWindow(QMainWindow):
         ui_path = os.path.join(base_dir, "../super_admin/super_admin.ui")  # 파일 위치를 정확히 지정
 
         self.s_admin = uic.loadUi(ui_path)
-
-        rp.init()
-        ros_node = Ros2MonitorNode(self.s_admin)
-
-        #self.view_3D = IMUVisualization()
-        #print(IMUVisualization)
-
-        # PyQt GUI와 ROS2 노드 병렬 실행
-        timer = QTimer()
-        timer.timeout.connect(lambda: rp.spin_once(ros_node, timeout_sec=0.01))
-        #timer.timeout.connect(lambda: rp.spin_once(battery_listener, timeout_sec=0.01))
-        timer.start(10)  # 10ms마다 ROS2 노드 갱신
         
 
         self.led_label = self.s_admin.findChild(QLabel, "led_label")
@@ -66,9 +55,6 @@ class MainWindow(QMainWindow):
         # 스택 위젯 생성 및 중앙 위젯으로 설정
         self.stacked_widget = QtWidgets.QStackedWidget(self)
         self.setCentralWidget(self.stacked_widget)
-
-        # 페이지를 스택 위젯에 추가
-        #self.stacked_widget.addWidget(self.s_admin)  # 관리자 페이지
 
         # 탭 위젯
         self.tabs = QTabWidget()
@@ -92,22 +78,10 @@ class MainWindow(QMainWindow):
         self.s_admin.joystick_control_button.toggled.connect(self.check_conditions)
 
         # 창을 최대화된 상태로 표시
-        #self.showMaximized()
+        self.showMaximized()
 
-        '''
+
         # 토픽 정보 탭
-        self.topic_tab = QWidget()
-        self.tabs.addTab(self.topic_tab, "토픽")
-        self.topic_layout = QVBoxLayout()
-        self.topic_tab.setLayout(self.topic_layout)
-
-        # 서비스 정보 탭
-        self.service_tab = QWidget()
-        self.tabs.addTab(self.service_tab, "서비스")
-        self.service_layout = QVBoxLayout()
-        self.service_tab.setLayout(self.service_layout)
-        '''
-
         tap_list = ["토픽", "서비스", "센서,카메라", "네비게이션", "로봇 상태 및 제어", "지도 및 위치", "기타 이벤트 및 상태"]
         for tap in tap_list:
             self.service_tab = QWidget()
@@ -119,18 +93,23 @@ class MainWindow(QMainWindow):
 
 
 
+
+
+
         # 타이머 설정 (주기적으로 갱신)
         self.timer = QTimer()
-        #self.timer.timeout.connect(self.update_ui)
+
         self.timer.start(3000)  # 1초마다 실행
 
         # SSH 연결 확인을 위한 타이머 설정 (예시: 5초마다 연결 시도)
         self.timer_1 = QTimer(self)
         self.timer_1.timeout.connect(self.check_ssh_connection)
-        #self.timer_1.timeout.connect(self.battery_listener)
-        #self.timer_1.timeout.connect(self.cmd_vel_listener)
-        #self.timer_1.timeout.connect(self.cmd_vel_nav_listener)
-        self.timer_1.start(5000)  # 5초마다 체크
+        self.timer_1.start(10000)  # 5초마다 체크
+
+
+        #print(battery_listener)
+
+
 
     def check_conditions(self):
         # 안전 확인이 되어 있는지 먼저 확인
@@ -227,32 +206,6 @@ class MainWindow(QMainWindow):
                         widget.deleteLater()  # 메모리에서 삭제
                 #print("All widgets removed from 'view_3d_dep'.")
 
-    '''
-    def find_topic_label(self, topic):
-        # 이미 존재하는 토픽 레이블을 찾음
-        for i in range(self.topic_layout.count()):
-            widget = self.topic_layout.itemAt(i).widget()
-            if isinstance(widget, QLabel) and widget.text().startswith(f"Topic: {topic}"):
-                return widget
-        return None
-
-    def find_bw_label(self, topic):
-        # 이미 존재하는 대역폭 레이블을 찾음
-        for i in range(self.topic_layout.count()):
-            widget = self.topic_layout.itemAt(i).widget()
-            if isinstance(widget, QLabel) and widget.text().startswith(f"  Bandwidth: {topic}"):
-                return widget
-        return None
-
-    def find_hz_label(self, topic):
-        # 이미 존재하는 주파수 레이블을 찾음
-        for i in range(self.topic_layout.count()):
-            widget = self.topic_layout.itemAt(i).widget()
-            if isinstance(widget, QLabel) and widget.text().startswith(f"  Frequency: {topic}"):
-                return widget
-        return None
-    '''
-    
     def list_topics(self):
         # 활성화된 토픽들의 이름과 타입을 가져옴
         topic_names_and_types = self.get_topic_names_and_types()
@@ -285,11 +238,7 @@ class MainWindow(QMainWindow):
 
             #print(topic)
             topic_list.append(topic)
-            # 줄 바꿈 문자로 연결
-            #topic_list_str = '\n'.join(topic)
-
-            # QLabel에 텍스트 설정
-            #label = QLabel()
+ 
         topic_list_str = '\n'.join(topic_list)
         self.s_admin.topic_list.setText(topic_list_str)
 
@@ -386,32 +335,28 @@ class MainWindow(QMainWindow):
 
 def main():
     # ROS2 초기화
-    #rp.init()
-    #ros_node = Ros2MonitorNode()
-
-    # 배터리 상태 구독 노드 생성 및 실행
-    #battery_listener = BatteryListener()
+    rp.init()
+ 
 
     # PyQt 애플리케이션 초기화
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
 
-    # PyQt GUI와 ROS2 노드 병렬 실행
-    #timer = QTimer()
-    #timer.timeout.connect(lambda: rp.spin_once(ros_node, timeout_sec=0.01))
-    #timer.timeout.connect(lambda: rp.spin_once(battery_listener, timeout_sec=0.01))
-    
-    #timer.start(10)  # 10ms마다 ROS2 노드 갱신
 
+    # 배터리 상태 구독 노드 생성 및 실행
+    battery_listener = BatteryListener()
+    #self.bat = battery_listener
+    print(battery_listener)
+
+    timer = QTimer()
+    timer.timeout.connect(lambda: rp.spin_once(battery_listener, timeout_sec=0.01))
+    timer.start(100)  # 10ms마다 ROS2 노드 갱신
+
+ 
     app.exec_()
 
-        # ROS 2 이벤트 루프 실행
-    #rp.spin(ros_node)
-
-    # 애플리케이션 종료 시 ROS2 노드 종료
-    #battery_listener.destroy_node()
-    #ros_node.destroy_node()
+ 
     rp.shutdown()
 
 

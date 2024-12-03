@@ -1,59 +1,51 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget
-from PyQt5.QtCore import Qt
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String  # 예시로 String 메시지 사용
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel
 
-class MainWindow(QMainWindow):
+class Ros2Subscriber(Node):
+    def __init__(self, label):
+        super().__init__('ros2_subscriber_node')
+        self.subscription = self.create_subscription(
+            String,  # 메시지 타입
+            'battery_voltage',  # 구독할 토픽 이름
+            self.listener_callback,
+            10  # 큐 사이즈
+        )
+        self.label = label
+
+    def listener_callback(self, msg):
+        # ROS 2 토픽에서 받은 메시지를 PyQt UI에 업데이트
+        self.label.setText(f'Received Message: {msg.data}')
+
+class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-
-        self.setWindowTitle("Button and Keyboard Mapping")
-        
-        # 버튼 설정
-        self.button1 = QPushButton("Button 1")
-        self.button2 = QPushButton("Button 2")
-        self.button3 = QPushButton("Button 3")
-
-        # 버튼 클릭 시 동작 설정
-        self.button1.clicked.connect(self.on_button1_click)
-        self.button2.clicked.connect(self.on_button2_click)
-        self.button3.clicked.connect(self.on_button3_click)
-
-        # 레이아웃 설정
+        self.setWindowTitle('ROS2 Topic Display')
+        self.setGeometry(100, 100, 400, 200)
         layout = QVBoxLayout()
-        layout.addWidget(self.button1)
-        layout.addWidget(self.button2)
-        layout.addWidget(self.button3)
+        
+        self.label = QLabel('Waiting for message...')
+        layout.addWidget(self.label)
+        
+        self.setLayout(layout)
 
-        # 메인 위젯 설정
-        central_widget = QWidget()
-        central_widget.setLayout(layout)
-        self.setCentralWidget(central_widget)
+        # ROS 2 구독자 초기화
+        self.ros2_subscriber = Ros2Subscriber(self.label)
 
-    def keyPressEvent(self, event):
-        key = event.key()
+def main(args=None):
+    rclpy.init(args=args)
 
-        # 키보드 버튼에 따라 매핑된 버튼 클릭
-        if key == Qt.Key_1:
-            self.button1.click()
-        elif key == Qt.Key_2:
-            self.button2.click()
-        elif key == Qt.Key_3:
-            self.button3.click()
-        else:
-            super().keyPressEvent(event)
-
-    # 각 버튼 클릭 시 실행될 함수들
-    def on_button1_click(self):
-        print("Button 1 clicked")
-
-    def on_button2_click(self):
-        print("Button 2 clicked")
-
-    def on_button3_click(self):
-        print("Button 3 clicked")
-
-if __name__ == "__main__":
+    # PyQt 애플리케이션 초기화
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
-    sys.exit(app.exec_())
+
+    # ROS 2 노드 실행
+    rclpy.spin(window.ros2_subscriber)
+
+    app.exec_()
+
+if __name__ == '__main__':
+    main()
