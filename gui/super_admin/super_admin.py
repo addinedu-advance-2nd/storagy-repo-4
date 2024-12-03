@@ -1,5 +1,5 @@
 # paramiko 설치 : pip install paramiko
-# inputs 설치 : pip install inputs
+# pygame 설치 : pip install pygame
 
 
 
@@ -8,7 +8,7 @@ import sys
 import os
 import paramiko
 import re
-import inputs  # 조이스틱 입력 라이브러리
+import pygame  # 조이스틱 입력 라이브러리
 
 import subprocess
 from PyQt5 import QtWidgets, uic, QtGui, QtCore
@@ -26,6 +26,7 @@ from keyboard_control import KeyBoardControl
 from joystick_control import JoyStickControl
 from battery_listener import BatteryListener
 from cmd_vel_listener import CmdVelListener
+from cam_stream import CameraThread
 
 
 #from gui.super_admin.super_topic import TopicSubscriber
@@ -88,20 +89,15 @@ class MainWindow(QMainWindow):
 
 
 
-
-
-
-
-
         # 타이머 설정 (주기적으로 갱신)
         self.timer = QTimer()
 
         self.timer.start(3000)  # 1초마다 실행
 
         # SSH 연결 확인을 위한 타이머 설정 (예시: 5초마다 연결 시도)
-        self.timer_1 = QTimer(self)
-        self.timer_1.timeout.connect(self.check_ssh_connection)
-        self.timer_1.start(10000)  # 5초마다 체크
+        #self.timer_1 = QTimer(self)
+        #self.timer_1.timeout.connect(self.check_ssh_connection)
+        #self.timer_1.start(10000)  # 5초마다 체크
 
 
         #print(battery_listener)
@@ -126,8 +122,22 @@ class MainWindow(QMainWindow):
 
     def view_rgb_cam_checkbox(self, state):
         if state == 2:  # 체크박스가 선택되었을 때
+            # 카메라 소스 선택
+            # 1. 노트북 웹캠 (기본값)
+            camera_source = 0  
+
+            # 2. ESP32-CAM (사용 시 주석 해제)
+            # camera_source = "http://192.168.0.100:81/stream"
+
+            # 3. ROS 카메라 토픽 `/camera/color/image_raw` (사용 시 OpenCV로 처리 필요, 주석 해제)
+            # camera_source = "/camera/color/image_raw"
+
+
+
+
             # CamStream 인스턴스 생성하여 카메라 스트리밍 시작
-            self.cam_stream = CamStream(self.s_admin)
+            self.cam_stream = CamStream(camera_source, self.s_admin)
+            #self.cam_stream = CameraThread(camera_source)
         else:
             # 체크박스가 선택되지 않으면 화면 끄기
             self.clear_camera_stream()
@@ -138,7 +148,7 @@ class MainWindow(QMainWindow):
         
         # 현재 실행 중인 카메라 스트리밍을 중지할 수 있다면, 중지하는 코드 추가
         if hasattr(self, 'cam_stream'):
-            self.cam_stream.camera_thread.stop()
+            self.cam_stream.stop()
             del self.cam_stream
 
     def view_3d_lidar_checkbox(self, state):
@@ -325,6 +335,30 @@ class MainWindow(QMainWindow):
 
  
         return ssid, ip_addresses[2]
+    '''
+class CamStream:
+    def __init__(self, s_admin):
+        self.s_admin = s_admin
+        # 카메라 소스 선택
+        # 1. 노트북 웹캠 (기본값)
+        camera_source = 0  
+
+        # 2. ESP32-CAM (사용 시 주석 해제)
+        # camera_source = "http://192.168.0.100:81/stream"
+
+        # 3. ROS 카메라 토픽 `/camera/color/image_raw` (사용 시 OpenCV로 처리 필요, 주석 해제)
+        # camera_source = "/camera/color/image_raw"
+
+
+
+        # 카메라 스레드 생성 및 신호 연결
+        self.camera_thread = CameraThread(camera_source)
+        self.camera_thread.frame_ready.connect(self.update_frame)
+
+    def update_frame(self, frame):
+        # QLabel에 프레임 표시
+        self.s_admin.rgb_cam.setPixmap(QPixmap.fromImage(frame))
+    '''
     
 
     
@@ -360,7 +394,7 @@ def main():
     timer = QTimer()
     timer.timeout.connect(lambda: rp.spin_once(battery_listener, timeout_sec=1))
     timer.timeout.connect(lambda: rp.spin_once(cmd_vel_listener, timeout_sec=1))
-    timer.start(1000)  # 100ms마다 ROS2 노드 갱신
+    timer.start(3000)  # 100ms마다 ROS2 노드 갱신
 
  
     app.exec_()
