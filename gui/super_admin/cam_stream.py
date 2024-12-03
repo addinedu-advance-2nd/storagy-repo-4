@@ -1,6 +1,6 @@
 # cam_stream.py
 
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtCore import QThread, pyqtSignal, Qt
 import cv2
 import numpy as np
 from PyQt5.QtGui import QImage, QPixmap
@@ -51,13 +51,21 @@ class CamStream:
         self.camera_thread.start()
 
     def update_frame(self, frame):
+        #320*180으로 리사이즈
+        resized_frame = cv2.resize(frame, (320, 180))
+
         # OpenCV 이미지를 QImage로 변환
-        rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        rgb_image = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
         height, width, channel = rgb_image.shape
         qimg = QImage(rgb_image.data, width, height, width * channel, QImage.Format_RGB888)
 
+        # QLabel 크기에 맞게 프레임 크기 조정
+        #height, width = self.s_admin.rgb_cam.height(), self.s_admin.rgb_cam.width()
+        #resized_frame = cv2.resize(frame, (width, height))
+
         # UI의 QLabel에 QImage를 설정
         self.s_admin.rgb_cam.setPixmap(QPixmap.fromImage(qimg))
+        self.s_admin.rgb_cam.setAlignment(Qt.AlignCenter)
 
 
 

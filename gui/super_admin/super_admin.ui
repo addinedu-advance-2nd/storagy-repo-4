@@ -367,10 +367,10 @@
    <widget class="QLabel" name="rgb_cam">
     <property name="geometry">
      <rect>
-      <x>130</x>
-      <y>560</y>
-      <width>201</width>
-      <height>211</height>
+      <x>80</x>
+      <y>590</y>
+      <width>320</width>
+      <height>180</height>
      </rect>
     </property>
     <property name="text">
