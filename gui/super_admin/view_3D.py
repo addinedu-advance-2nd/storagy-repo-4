@@ -143,7 +143,7 @@ class IMUVisualization(QWidget):
         i=0
         for i in range(0,501):
             x = random.uniform(-10, 10)
-            y = random.uniform(-10, 10)
+            y = random.uniform(7, 9)
             z = random.uniform(-10, 10)
             x_data.append(x)
             y_data.append(y)

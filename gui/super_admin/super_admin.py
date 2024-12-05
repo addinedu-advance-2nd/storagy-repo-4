@@ -121,6 +121,18 @@ class MainWindow(QMainWindow):
         #print(battery_listener)
 
 
+            # 배터리 상태 구독 노드 생성 및 실행
+        battery_listener = BatteryListener(s_admin)
+        cmd_vel_listener = CmdVelListener(s_admin)
+        #self.bat = battery_listener
+        print(battery_listener)
+
+        timer = QTimer()
+        timer.timeout.connect(lambda: rp.spin_once(battery_listener, timeout_sec=1))
+        timer.timeout.connect(lambda: rp.spin_once(cmd_vel_listener, timeout_sec=1))
+        timer.start(3000)  # 100ms마다 ROS2 노드 갱신
+
+
 
     def check_conditions(self):
         # 안전 확인이 되어 있는지 먼저 확인
@@ -406,7 +418,7 @@ def main():
     window.show()
         
 
-
+    '''
     # 배터리 상태 구독 노드 생성 및 실행
     battery_listener = BatteryListener(s_admin)
     cmd_vel_listener = CmdVelListener(s_admin)
@@ -417,7 +429,7 @@ def main():
     timer.timeout.connect(lambda: rp.spin_once(battery_listener, timeout_sec=1))
     timer.timeout.connect(lambda: rp.spin_once(cmd_vel_listener, timeout_sec=1))
     timer.start(3000)  # 100ms마다 ROS2 노드 갱신
-
+    '''
  
     app.exec_()
 
