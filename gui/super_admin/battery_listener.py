@@ -17,9 +17,9 @@ class BatteryListener(Node):
 
     def listener_callback(self, msg):
         self.voltage = round(float(msg.data), 2)  # 문자열을 float로 변환하고 반올림
-        for i in range(0,100):
-            self.s_admin.battery_voltage.setText(f"배터리 잔량 : {i} %")
-        #self.s_admin.battery_voltage.setText(f"배터리 잔량 : {self.voltage} %")
+        #for i in range(0,100):
+        #    self.s_admin.battery_voltage.setText(f"배터리 잔량 : {i} %")
+        self.s_admin.battery_voltage.setText(f"배터리 잔량 : {self.voltage} %")
         self.get_value()
 
     def get_value(self):

@@ -1,5 +1,6 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QLabel, QComboBox, QWidget
+from battery_listener import BatteryListener
 
 
 class TopicTabView(QMainWindow):
@@ -20,7 +21,7 @@ class TopicTabView(QMainWindow):
 
         # QComboBox 생성
         #self.combo_box = QComboBox()
-        self.topic_tab_page.topic_combo_box.addItems(["배터리 잔량", "항목2", "항목3"])
+        self.topic_tab_page.topic_combo_box.addItems(["", "배터리 잔량", "항목2", "항목3"])
         self.topic_tab_page.topic_combo_box.currentIndexChanged.connect(self.update_label)
         self.layout.addWidget(self.topic_tab_page)
 
@@ -37,6 +38,10 @@ class TopicTabView(QMainWindow):
     def execute_function(self, item):
         # 선택된 항목에 따라 다른 결과 반환
         if item == "배터리 잔량":
+            self.battery_listener = BatteryListener(self.topic_tab_page)
+            print(self.battery_listener)
+            #self.topic_tab_page.data_label.setText(self.battery_listener)
+
             return "/battery_voltage"
         elif item == "항목2":
             return "항목2가 선택되었습니다!"
