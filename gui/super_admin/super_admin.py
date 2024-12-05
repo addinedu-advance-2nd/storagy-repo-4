@@ -27,6 +27,7 @@ from joystick_control import JoyStickControl
 from battery_listener import BatteryListener
 from cmd_vel_listener import CmdVelListener
 from cam_stream import CameraThread
+from topic_tab import TopicTabView
 
 
 #from gui.super_admin.super_topic import TopicSubscriber
@@ -38,11 +39,12 @@ password = "123412"   # SSH 접속에 사용할 비밀번호
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, s_admin):
+    def __init__(self, s_admin, topic_tab_page):
         super().__init__()
         #self.ros_node = ros_node
 
         self.s_admin = s_admin
+        self.topic_tab_page = topic_tab_page
 
 
         self.setWindowTitle("ROS2 Monitor with Bandwidth and Frequency")
@@ -81,6 +83,22 @@ class MainWindow(QMainWindow):
 
         # 토픽 정보 탭
         tap_list = ["토픽", "서비스", "센서,카메라", "네비게이션", "로봇 상태 및 제어", "지도 및 위치", "기타 이벤트 및 상태"]
+ 
+        self.topic_tab = QWidget()
+        self.tabs.addTab(self.topic_tab, "토픽")
+        self.topic_layout = QVBoxLayout()
+        self.topic_tab.setLayout(self.topic_layout)
+
+
+        self.topic_tap_view = TopicTabView(topic_tab_page)  
+
+               # topic_tab.ui를 main_tab에 추가
+        self.topic_layout.addWidget(self.topic_tap_view)
+     
+            
+            
+        # 토픽 정보 탭
+        tap_list = ["서비스", "센서,카메라", "네비게이션", "로봇 상태 및 제어", "지도 및 위치", "기타 이벤트 및 상태"]
         for tap in tap_list:
             self.service_tab = QWidget()
             self.tabs.addTab(self.service_tab, tap)
@@ -377,10 +395,14 @@ def main():
     # UI 로드 및 스택 위젯 설정
     base_dir = os.path.dirname(os.path.abspath(__file__))
     ui_path = os.path.join(base_dir, "../super_admin/super_admin.ui")  # 파일 위치를 정확히 지정
-
     s_admin = uic.loadUi(ui_path)
 
-    window = MainWindow(s_admin)
+    # UI 로드 및 스택 위젯 설정
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    ui_path = os.path.join(base_dir, "../super_admin/topic_tab.ui")  # 파일 위치를 정확히 지정
+    topic_tab_page = uic.loadUi(ui_path)
+
+    window = MainWindow(s_admin, topic_tab_page)
     window.show()
         
 
