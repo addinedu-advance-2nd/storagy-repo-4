@@ -7,6 +7,10 @@ from PyQt5.QtCore import Qt, QThread
 import sys
 from cmd_vel_pub import CmdVelPub
 
+import time
+
+
+
 # 로깅 설정
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -181,18 +185,32 @@ class JoyStickControl(QMainWindow):
         pygame.init()  # Pygame 초기화
         joystick = pygame.joystick.Joystick(0)  # 첫 번째 조이스틱 연결
         joystick.init()  # 조이스틱 초기화
-        
-        while True:
+
+
+        '''
+        # 메인 루프
+        running = True
+        while running:
+            # 이벤트가 있으면 처리
             events = pygame.event.get()  # Pygame 이벤트를 받아옴
             for event in events:
+                if event.type == pygame.QUIT:
+                    running = False  # 종료 이벤트 처리
+
                 if event.type == pygame.JOYAXISMOTION:
+                    # 조이스틱 제어
                     linear_x = joystick.get_axis(1)  # Y축 (앞뒤) 제어
                     angular_z = joystick.get_axis(0)  # X축 (왼쪽/오른쪽) 제어
                     self.cmd_vel_pub.send_command(linear_x=linear_x, angular_z=angular_z)
 
                     logger.info(f'Joystick Command: linear.x={linear_x}, angular.z={angular_z}')
-        
+            
+            # 이벤트가 없을 때도 다른 작업을 처리할 수 있도록
+            # 예를 들어, 주기적인 작업 수행
+            time.sleep(0.01)  # 잠깐 대기하여 CPU 부하를 줄임 (조정 가능)
+        '''
         pygame.quit()  # Pygame 종료
+
 
 
     
