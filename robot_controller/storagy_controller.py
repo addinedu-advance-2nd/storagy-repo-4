@@ -8,7 +8,7 @@ from nav2_msgs.action import NavigateToPose
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from geometry_msgs.msg import Twist
 
-from std_msgs.msg import String
+from control_msgs.msg import RobotArriveState, RobotRecevieMoving, RobotRequestMoving
 
 import math
 
@@ -66,9 +66,10 @@ class RobotController(Node):
         super().__init__('RobotController')
         
         self._action_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
-        self.move_subscriber = self.create_subscription(String, '/dest_order', self.get_destination, 10)
+        self.move_subscriber = self.create_subscription(RobotRequestMoving, '/robot_request_moving', self.get_destination, 10)
         
         self.cmd_vel_publisher = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.robot_arrive_publisher = self.create_publisher(RobotArriveState, '/robot_arrive_state', 10)
         self.amcl_subscriber = self.create_subscription(PoseWithCovarianceStamped, '/amcl_pose', self.amcl_pose_callback, 10)
         
         self.goal_handle = None
@@ -86,7 +87,9 @@ class RobotController(Node):
         self.position = {'x': 0.0, 'y': 0.0, 'theta': 0.0}
 
     def get_destination(self, msg):
-        self.move_to_goal(msg)
+        req_sys = msg.request_system
+        destination = msg.positions
+        self.move_to_goal(destination)
     
     
     def move_to_goal(self, destination):    #움직임 실행 
@@ -96,7 +99,8 @@ class RobotController(Node):
 ##################### 네비게이션 패키지 동작 코드###############
 
     def navigation_to_goal(self, destination):  
-        self.send_goal(PositionDict[destination])
+        #destination = PositionDict[destination]  # destination이 목표 지점 문자열일경우
+        self.send_goal(destination)
 
     def send_goal(self, position):
         # 목표 위치 설정 (예: (x=2, y=2))
@@ -142,6 +146,7 @@ class RobotController(Node):
         # 70cm 이내로 들어오면 네비게이션 종료
         if 0.01 < feedback.feedback.distance_remaining < 0.7 and feedback.feedback.navigation_time.sec > 1:
             self.cancel_goal()
+            self.send_arrive_state(is_arrived=True)
 
     def cancel_goal(self):
         if self.goal_handle is not None:
@@ -149,6 +154,12 @@ class RobotController(Node):
             self._action_client._cancel_goal_async(self.goal_handle)
         else:
             self.get_logger().error('No goal to cancel')
+    
+    def send_arrive_state(self, is_arrived=True):
+        msg = RobotArriveState()
+        msg.is_arrived = is_arrived
+        msg.positions = [self.position['x'], self.position['y']]
+        self.robot_arrive_publisher.publish(msg)
 
 ############## 네비게이션 동작 코드 끝 ################
 ##################### 여기서부터 의사코드 입니다 ########################
