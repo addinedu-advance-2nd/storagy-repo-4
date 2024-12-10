@@ -66,14 +66,14 @@ class RobotController(Node):
         super().__init__('RobotController')
         
         self._action_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
-        self.move_subscriber = self.create_subscription(RobotRequestMoving, '/robot_request_moving', self.get_destination, 10)
+        self.move_subscriber = self.create_subscription(RobotRequestMoving, '/moving_request', self.get_destination, 10)
         
         self.cmd_vel_publisher = self.create_publisher(Twist, '/cmd_vel', 10)
-        self.robot_arrive_publisher = self.create_publisher(RobotArriveState, '/robot_arrive_state', 10)
+        self.robot_arrive_publisher = self.create_publisher(RobotArriveState, '/arrived_receive', 10)
         self.amcl_subscriber = self.create_subscription(PoseWithCovarianceStamped, '/amcl_pose', self.amcl_pose_callback, 10)
         
         self.goal_handle = None
-        self.move_to_goal('corridor3')
+        # self.move_to_goal('corridor3')
         # self.send_goal([1.0, 0.0])
 
         
@@ -93,8 +93,8 @@ class RobotController(Node):
     
     
     def move_to_goal(self, destination):    #움직임 실행 
-        self.navigation_to_goal(destination)
-        self.manual_move()
+        self.navigation_to_goal(destination[0])
+        self.manual_move([destination[1]])
     
 ##################### 네비게이션 패키지 동작 코드###############
 
@@ -160,22 +160,26 @@ class RobotController(Node):
         msg.is_arrived = is_arrived
         msg.positions = [self.position['x'], self.position['y']]
         self.robot_arrive_publisher.publish(msg)
+        print('arrived_goal')
+        pass
 
 ############## 네비게이션 동작 코드 끝 ################
-##################### 여기서부터 의사코드 입니다 ########################
+##################### 직접 조작 코드 ########################
 
     def manual_move(self, node_list):
         for node in node_list:
             self.set_goal(node)
 
             distnace_error = self.remain_distance()
-            while distnace_error > 0.4:
+            while distnace_error > 0.3:
                 distnace_error = self.remain_distance()
                 angle_error = self.distance_angle_diff()
                 if angle_error > 0.3:
                     self.PID_move(distnace_error, angle_error, angle_only=True)
                 else:
                     self.PID_move(distnace_error, angle_error, angle_only=False)
+        
+        self.send_arrive_state(is_arrived=True)
     
     def set_goal(self, node):
         self.goal_x = node[0]
@@ -222,15 +226,15 @@ class RobotController(Node):
 
         return detected_position
     
-    def rotate_to_goal(self):
-        dx = self.goal_x - self.position['x']
-        dy = self.goal_y - self.position['y']
-        target_angle = math.atan2(dy, dx)
-        angle_error = self.normalize_angle(target_angle - self.position['theta'])
-        angular_speed = self.pid_angular.process(angle_error)
-        twist = Twist()
-        twist.angular.z = angular_speed
-        self.cmd_vel_publisher.publish(twist)
+    # def rotate_to_goal(self):                 # 이거 이제 안씀
+    #     dx = self.goal_x - self.position['x']
+    #     dy = self.goal_y - self.position['y']
+    #     target_angle = math.atan2(dy, dx)
+    #     angle_error = self.normalize_angle(target_angle - self.position['theta'])
+    #     angular_speed = self.pid_angular.process(angle_error)
+    #     twist = Twist()
+    #     twist.angular.z = angular_speed
+    #     self.cmd_vel_publisher.publish(twist)
 
     def amcl_pose_callback(self, msg):
         self.position['x'] = msg.pose.pose.position.x
@@ -252,7 +256,7 @@ class RobotController(Node):
         yaw = math.atan2(t3, t4)
         return [yaw, pitch, roll]
 
-####################### 의사코드 끝 #######################
+####################### 직접 조작 끝 #######################
 
         
 def main(args=None):
