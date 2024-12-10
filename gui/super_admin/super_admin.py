@@ -13,7 +13,7 @@ import pygame  # 조이스틱 입력 라이브러리
 import subprocess
 from PyQt5 import QtWidgets, uic, QtGui, QtCore
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QLabel, QWidget, QTabWidget, QFrame
-from PyQt5.QtCore import QTimer, QStringListModel, Qt
+from PyQt5.QtCore import QTimer, QStringListModel, Qt, QThread
 import rclpy as rp
 from rclpy.node import Node
 from std_msgs.msg import String
@@ -22,8 +22,8 @@ from view_3D import IMUVisualization
 from ros_monitor import Ros2MonitorNode
 from cam_stream import CamStream
 #from storagy_control import StoragyControl
-from keyboard_control import KeyBoardControl
-from joystick_control import JoyStickControl
+#from gui.super_admin.old.keyboard_control import KeyBoardControl
+#from gui.super_admin.old.joystick_control import JoyStickControl
 from battery_listener import BatteryListener
 from cmd_vel_listener import CmdVelListener
 from cam_stream import CameraThread
@@ -48,12 +48,13 @@ print(f"ROS Domain ID: {ros_domain_id}")
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, s_admin, topic_tab_page):
+    def __init__(self, s_admin, topic_tab_page, nav_tab_page):
         super().__init__()
         #self.ros_node = ros_node
 
         self.s_admin = s_admin
         self.topic_tab_page = topic_tab_page
+        self.nav_tab_page = nav_tab_page
 
 
         self.setWindowTitle("ROS2 Monitor with Bandwidth and Frequency")
@@ -98,12 +99,21 @@ class MainWindow(QMainWindow):
         self.topic_layout = QVBoxLayout()
         self.topic_tab.setLayout(self.topic_layout)
 
-
         self.topic_tap_view = TopicTabView(topic_tab_page)  
 
-               # topic_tab.ui를 main_tab에 추가
+        # topic_tab.ui를 main_tab에 추가
         self.topic_layout.addWidget(self.topic_tap_view)
      
+        # 네이게이션 탭 추가
+        self.nav_tab = QWidget()
+        self.tabs.addTab(self.nav_tab, "네비게이션")
+        self.nav_layout = QVBoxLayout()
+        self.nav_tab.setLayout(self.nav_layout)
+
+        self.nav_tap_view = TopicTabView(self.nav_tab_page)  
+
+        # topic_tab.ui를 main_tab에 추가
+        self.nav_layout.addWidget(self.nav_tap_view)
             
         '''    
         # 토픽 정보 탭
@@ -170,7 +180,7 @@ class MainWindow(QMainWindow):
             # manual_control이 실행되고 있으면 종료 후 재 실행
             if hasattr(self, 'manual_control'):
                 del self.manual_control
-            self.keyboard_control = KeyBoardControl(self.s_admin)
+            #self.keyboard_control = KeyBoardControl(self.s_admin)
 
             # 키보드 버튼에 따라 매핑된 버튼 클릭
             if key == Qt.Key_W:
@@ -407,6 +417,23 @@ class MainWindow(QMainWindow):
 
  
         return ssid, ip_addresses[2]
+    
+# 쓰레드 클래스 정의
+class ROS2Thread(QThread):
+    def __init__(self, node_class, s_admin):
+        super().__init__()
+        self.node_class = node_class
+        self.s_admin = s_admin
+
+    def run(self):
+        #rp.init()
+        node = self.node_class(self.s_admin)
+        executor = rp.executors.SingleThreadedExecutor()  # 단일 스레드 Executor 사용
+        executor.add_node(node)
+        while rp.ok():
+            executor.spin_once(timeout_sec=0.1)  # spin_once() 사용
+        node.destroy_node()
+        rp.shutdown()
 
 
 def main():
@@ -429,27 +456,38 @@ def main():
     ui_path = os.path.join(base_dir, "../super_admin/topic_tab.ui")  # 파일 위치를 정확히 지정
     topic_tab_page = uic.loadUi(ui_path)
 
-    window = MainWindow(s_admin, topic_tab_page)
+        # UI 로드 및 스택 위젯 설정
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    ui_path = os.path.join(base_dir, "../super_admin/nav_tab.ui")  # 파일 위치를 정확히 지정
+    nav_tab_page = uic.loadUi(ui_path)
+
+    window = MainWindow(s_admin, topic_tab_page, nav_tab_page)
     window.show()
         
 
     
-    # 배터리 상태 구독 노드 생성 및 실행
-    battery_listener = BatteryListener(s_admin)
-    cmd_vel_listener = CmdVelListener(s_admin)
-    motor_state_listener = MotorStateListener(s_admin)
-    odom_listener = OdomListener(s_admin)
-    #self.bat = battery_listener
-    print(battery_listener)
+    # 각 노드를 별도의 쓰레드에서 실행
+    battery_thread = ROS2Thread(BatteryListener, s_admin)
+    battery_thread.start()
 
-    
+    cmd_vel_thread = ROS2Thread(CmdVelListener, s_admin)
+    cmd_vel_thread.start()
+
+    motor_state_thread = ROS2Thread(MotorStateListener, s_admin)
+    motor_state_thread.start()
+
+    odom_thread = ROS2Thread(OdomListener, s_admin)
+    odom_thread.start()
+
+    '''
+    # 타이머로 100ms마다 ROS2 스핀 갱신
     timer = QTimer()
-    timer.timeout.connect(lambda: rp.spin_once(battery_listener, timeout_sec=0.1))
-    timer.timeout.connect(lambda: rp.spin_once(cmd_vel_listener, timeout_sec=0.1))
-    timer.timeout.connect(lambda: rp.spin_once(motor_state_listener, timeout_sec=0.1))
-    timer.timeout.connect(lambda: rp.spin_once(odom_listener, timeout_sec=0.1))
-    timer.start(300)  # 100ms마다 ROS2 노드 갱신
-    
+    timer.timeout.connect(lambda: rp.spin_once(battery_thread, timeout_sec=0.1))
+    timer.timeout.connect(lambda: rp.spin_once(cmd_vel_thread, timeout_sec=0.1))
+    timer.timeout.connect(lambda: rp.spin_once(motor_state_thread, timeout_sec=0.1))
+    timer.timeout.connect(lambda: rp.spin_once(odom_thread, timeout_sec=0.1))
+    timer.start(300)  # 300ms마다 ROS2 노드 갱신
+    '''
  
     app.exec_()
 

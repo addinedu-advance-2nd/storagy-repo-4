@@ -1,72 +1,39 @@
-import sys
-import pygame
-from PyQt5.QtWidgets import QApplication, QLabel, QMainWindow
-from PyQt5.QtCore import Qt, QTimer
+import numpy as np
+import cv2
 
+# Euler 각도 변환 함수
+def rotation_matrix_to_euler_angles(R):
+    sy = np.sqrt(R[0, 0] ** 2 + R[1, 0] ** 2)
+    singular = sy < 1e-6
 
-class JoystickWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Joystick Ball Control")
-        self.setGeometry(100, 100, 800, 600)
+    if not singular:
+        x = np.arctan2(R[2, 1], R[2, 2])
+        y = np.arctan2(-R[2, 0], sy)
+        z = np.arctan2(R[1, 0], R[0, 0])
+    else:
+        x = np.arctan2(-R[1, 2], R[1, 1])
+        y = np.arctan2(-R[2, 0], sy)
+        z = 0
 
-        # Ball position and radius
-        self.ball_x = self.width() // 2
-        self.ball_y = self.height() // 2
-        self.ball_radius = 20
-        self.ball_speed = 5
+    return np.degrees(x), np.degrees(y), np.degrees(z)
 
-        # Label for displaying the ball
-        self.ball_label = QLabel(self)
-        self.ball_label.setStyleSheet("background-color: red; border-radius: 20px;")
-        self.ball_label.setGeometry(
-            self.ball_x - self.ball_radius,
-            self.ball_y - self.ball_radius,
-            self.ball_radius * 2,
-            self.ball_radius * 2,
-        )
+# 주어진 rVec 값들
+rvecs = [
+    [2.94, 0.21, -0.43], [2.96, 0.19, -0.54], [2.96, 0.19, -0.54],
+    [2.92, 0.19, -0.56], [2.95, 0.18, -0.52], [2.95, 0.18, -0.52],
+    [2.93, 0.19, -0.62], [2.95, 0.18, -0.52], [2.95, 0.19, -0.47],
+    [2.96, 0.19, -0.54], [2.96, 0.19, -0.54], [2.96, 0.19, -0.54],
+    [2.96, 0.19, -0.54], [2.96, 0.19, -0.54], [2.96, 0.19, -0.54],
+    [2.96, 0.19, -0.54], [2.84, 0.13, -0.67], [2.7, 0.05, -0.74],
+    [2.52, -0.1, -0.76], [2.31, -0.25, -0.68]
+]
 
-        # Timer for updating joystick input
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_position)
-        self.timer.start(16)  # ~60 FPS
-
-        # Initialize pygame and joystick
-        pygame.init()
-        pygame.joystick.init()
-        if pygame.joystick.get_count() > 0:
-            self.joystick = pygame.joystick.Joystick(0)
-            self.joystick.init()
-        else:
-            self.joystick = None
-            print("No joystick detected.")
-
-    def update_position(self):
-        if self.joystick:
-            pygame.event.pump()
-
-            # Read joystick axes
-            axis_x = self.joystick.get_axis(0)  # X-axis
-            axis_y = self.joystick.get_axis(1)  # Y-axis
-
-            # Update ball position based on joystick input
-            self.ball_x += int(axis_x * self.ball_speed)
-            self.ball_y += int(axis_y * self.ball_speed)
-
-            # Boundary checks
-            self.ball_x = max(self.ball_radius, min(self.width() - self.ball_radius, self.ball_x))
-            self.ball_y = max(self.ball_radius, min(self.height() - self.ball_radius, self.ball_y))
-
-            # Update ball label position
-            self.ball_label.move(self.ball_x - self.ball_radius, self.ball_y - self.ball_radius)
-
-    def closeEvent(self, event):
-        pygame.quit()
-        super().closeEvent(event)
-
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = JoystickWindow()
-    window.show()
-    sys.exit(app.exec_())
+# 각도 변환 수행
+for rvec in rvecs:
+    rvec = np.array(rvec, dtype=np.float32)
+    rotation_matrix, _ = cv2.Rodrigues(rvec)
+    roll, pitch, yaw = rotation_matrix_to_euler_angles(rotation_matrix)
+    
+    print(f"rVec: {rvec}")
+    print(f"Roll: {roll:.2f}, Pitch: {pitch:.2f}, Yaw: {yaw:.2f}")
+    print("-" * 30)
