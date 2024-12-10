@@ -2,9 +2,15 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS  # flask-cors 모듈 가져오기
 import os
 from print import print_file  # printer 모듈 가져오기
+import rclpy
+from rclpy.node import Node
+from print_publisher import PrintPublisher
 
 app = Flask(__name__)
 CORS(app)  # 모든 도메인에서의 접근을 허용합니다.
+
+rclpy.init()
+node = PrintPublisher() #ROS 발행
 
 # 저장할 디렉토리 설정
 UPLOAD_FOLDER = './print_system/request_print'
@@ -33,7 +39,13 @@ def request_print():
     try:
         # 프린터에 파일 출력
         #job_id = print_file(user, file_path)  # 프린터 모듈 사용
-        msg = print_file(file_path)  # 프린터 모듈 사용       
+        
+        node.send_callback()
+
+        # 프린트 하기
+        msg = print_file(file_path)  # 프린터 모듈 사용    
+
+
         return jsonify({"success": True, "file_path": file_path, "user": user}), 200 
 
     except ValueError as e:
