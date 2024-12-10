@@ -1,10 +1,16 @@
 import rclpy
+import pygame
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from PyQt5.QtWidgets import QMainWindow, QApplication, QPushButton
 from PyQt5.QtCore import Qt, QThread
 import sys
 from cmd_vel_pub import CmdVelPub
+
+# 로깅 설정
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 '''
 # ROS 2 노드 (RobotMover)
@@ -32,6 +38,26 @@ class RclpyThread(QThread):
         self.node = node
 '''
 
+class ManualControl():
+    def __init__(self, s_admin, control_type):
+        self.s_admin = s_admin
+        #self.control_type = control_type
+
+        #self.cmd_vel_pub = CmdVelPub()  # ROS 2 노드 초기화
+
+        if control_type == "keyboard":
+            self.keyboard_control = KeyBoardControl(self.s_admin)
+            # joystick_control이 존재하는지 확인 후 삭제
+            if hasattr(self, 'joystick_control'):
+                del self.joystick_control
+        elif control_type == "joystick":
+            self.joystick_control = JoyStickControl(self.s_admin)
+            # joystick_control이 존재하는지 확인 후 삭제
+            if hasattr(self, 'keyboard_control'):
+                del self.keyboard_control
+
+
+
 # PyQt GUI (KeyBoardControl)
 class KeyBoardControl(QMainWindow):
     def __init__(self, s_admin):
@@ -40,6 +66,8 @@ class KeyBoardControl(QMainWindow):
         self.setWindowTitle("Robot Controller")
 
         self.cmd_vel_pub = CmdVelPub()  # ROS 2 노드 초기화
+
+      
         self.setup_ui()
 
         # 포커스를 받을 수 있도록 설정
@@ -133,7 +161,38 @@ class KeyBoardControl(QMainWindow):
         return self.linear_x, self.angular_z
     
 
+# JoyStickControl 클래스 (PyQt5 GUI, 조이스틱 제어)
+class JoyStickControl(QMainWindow):
+    def __init__(self, s_admin):
+        super().__init__()
+        self.s_admin = s_admin
 
+        self.cmd_vel_pub = CmdVelPub()  # ROS 2 노드 초기화
+        #self.setWindowTitle("Robot Controller")
+        #self.robot_mover = RobotMover()  # ROS 2 노드 객체 생성
+        self.setup_ui()
+
+    def setup_ui(self):
+        self.setGeometry(100, 100, 400, 300)
+        self.joystick_control()
+
+    def joystick_control(self):
+        """조이스틱 입력을 받아서 로봇을 비례제어하는 함수"""
+        pygame.init()  # Pygame 초기화
+        joystick = pygame.joystick.Joystick(0)  # 첫 번째 조이스틱 연결
+        joystick.init()  # 조이스틱 초기화
+        
+        while True:
+            events = pygame.event.get()  # Pygame 이벤트를 받아옴
+            for event in events:
+                if event.type == pygame.JOYAXISMOTION:
+                    linear_x = joystick.get_axis(1)  # Y축 (앞뒤) 제어
+                    angular_z = joystick.get_axis(0)  # X축 (왼쪽/오른쪽) 제어
+                    self.cmd_vel_pub.send_command(linear_x=linear_x, angular_z=angular_z)
+
+                    logger.info(f'Joystick Command: linear.x={linear_x}, angular.z={angular_z}')
+        
+        pygame.quit()  # Pygame 종료
 
 
     

@@ -13,7 +13,7 @@ import pygame  # 조이스틱 입력 라이브러리
 import subprocess
 from PyQt5 import QtWidgets, uic, QtGui, QtCore
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QLabel, QWidget, QTabWidget, QFrame
-from PyQt5.QtCore import QTimer, QStringListModel
+from PyQt5.QtCore import QTimer, QStringListModel, Qt
 import rclpy as rp
 from rclpy.node import Node
 from std_msgs.msg import String
@@ -30,6 +30,8 @@ from cam_stream import CameraThread
 from topic_tab import TopicTabView
 from motor_state_listener import MotorStateListener
 from odom_listener import OdomListener
+from cmd_vel_pub import CmdVelPub
+from manual_control import ManualControl
 
 
 #from gui.super_admin.super_topic import TopicSubscriber
@@ -76,8 +78,8 @@ class MainWindow(QMainWindow):
         self.s_admin.lidar_view.stateChanged.connect(self.view_3d_lidar_checkbox)
         self.s_admin.rgb_cam_view.stateChanged.connect(self.view_rgb_cam_checkbox)
         self.s_admin.safety_check_button.stateChanged.connect(lambda state: None)
-        self.s_admin.keyboard_control_button.toggled.connect(self.check_conditions)
-        self.s_admin.joystick_control_button.toggled.connect(self.check_conditions)
+        self.s_admin.keyboard_control_button.toggled.connect(self.keyboard_check_conditions)
+        self.s_admin.joystick_control_button.toggled.connect(self.joystick_check_conditions)
 
         # 창을 최대화된 상태로 표시
         self.showMaximized()
@@ -98,7 +100,7 @@ class MainWindow(QMainWindow):
         self.topic_layout.addWidget(self.topic_tap_view)
      
             
-            
+        '''    
         # 토픽 정보 탭
         tap_list = ["서비스", "센서,카메라", "네비게이션", "로봇 상태 및 제어", "지도 및 위치", "기타 이벤트 및 상태"]
         for tap in tap_list:
@@ -106,7 +108,7 @@ class MainWindow(QMainWindow):
             self.tabs.addTab(self.service_tab, tap)
             self.service_layout = QVBoxLayout()
             self.service_tab.setLayout(self.service_layout)
-
+        '''
 
 
         # 타이머 설정 (주기적으로 갱신)
@@ -120,17 +122,68 @@ class MainWindow(QMainWindow):
         self.timer_1.start(10000)  # 10초마다 체크
 
 
-    def check_conditions(self):
+    def keyboard_check_conditions(self):
         # 안전 확인이 되어 있는지 먼저 확인
         if self.s_admin.safety_check_button.isChecked() and self.s_admin.keyboard_control_button.isChecked():
             print("안전 확인 됨, 키보드로 선택됨")
-            self.storagy_control = KeyBoardControl(self.s_admin)
-        elif self.s_admin.safety_check_button.isChecked() and self.s_admin.joystick_control_button.isChecked():
-            print("안전 확인됨, 조이스틱으로 선택됨")
-            self.storagy_control = JoyStickControl(self.s_admin)
-            #self.storagy_control = StoragyControl(self.s_admin, self.joystick)
+            #self.storagy_control = KeyBoardControl(self.s_admin)
+            #self.key_board_control = KeyBoardControl(self.s_admin)
+            #self.manual_control = ManualControl(self.s_admin, "keyboard")
+            #print(self.key_board_control.send_command)
+            self.control_type = "keyboard"        
         else:
             pass
+
+        # manual_control이 실행되고 있으면 종료 후 재 실행
+        if hasattr(self, 'manual_control'):
+            del self.manual_control
+        self.manual_control = ManualControl(self.s_admin, self.control_type)
+
+
+
+
+    def joystick_check_conditions(self):
+        if self.s_admin.safety_check_button.isChecked() and self.s_admin.joystick_control_button.isChecked():
+            print("안전 확인됨, 조이스틱으로 선택됨")
+
+            #self.storagy_control = JoyStickControl(self.s_admin)
+            #self.storagy_control = StoragyControl(self.s_admin, self.joystick)
+            self.control_type = "joystick"
+        else:
+            pass
+        # manual_control이 실행되고 있으면 종료 후 재 실행
+        if hasattr(self, 'manual_control'):
+            del self.manual_control
+        self.manual_control = ManualControl(self.s_admin, self.control_type)
+
+    def keyPressEvent(self, event):
+        key = event.key()
+        print(f"Pressed key: {key}")
+
+        if self.s_admin.safety_check_button.isChecked() and self.s_admin.keyboard_control_button.isChecked():
+            # manual_control이 실행되고 있으면 종료 후 재 실행
+            if hasattr(self, 'manual_control'):
+                del self.manual_control
+            self.keyboard_control = KeyBoardControl(self.s_admin)
+
+            # 키보드 버튼에 따라 매핑된 버튼 클릭
+            if key == Qt.Key_W:
+                self.s_admin.move_forward_button.click()
+                #self.keyboard_control.move_forward()
+            elif key == Qt.Key_X:
+                self.s_admin.move_backward_button.click()
+            elif key == Qt.Key_A:
+                self.s_admin.turn_left_button.click()
+            elif key == Qt.Key_D:
+                self.s_admin.turn_right_button.click()
+            elif key == Qt.Key_S:
+                self.s_admin.stop_button.click()
+            elif key == Qt.Key_Q:
+                self.s_admin.rotate_left_button.click()
+            elif key == Qt.Key_E:
+                self.s_admin.rotate_right_button.click()
+            else:
+                super().keyPressEvent(event)
 
 
     def view_rgb_cam_checkbox(self, state):
@@ -385,10 +438,10 @@ def main():
 
     
     timer = QTimer()
-    timer.timeout.connect(lambda: rp.spin_once(battery_listener, timeout_sec=1))
-    timer.timeout.connect(lambda: rp.spin_once(cmd_vel_listener, timeout_sec=1))
-    timer.timeout.connect(lambda: rp.spin_once(motor_state_listener, timeout_sec=1))
-    timer.timeout.connect(lambda: rp.spin_once(odom_listener, timeout_sec=1))
+    timer.timeout.connect(lambda: rp.spin_once(battery_listener, timeout_sec=0.1))
+    timer.timeout.connect(lambda: rp.spin_once(cmd_vel_listener, timeout_sec=0.1))
+    timer.timeout.connect(lambda: rp.spin_once(motor_state_listener, timeout_sec=0.1))
+    timer.timeout.connect(lambda: rp.spin_once(odom_listener, timeout_sec=0.1))
     timer.start(300)  # 100ms마다 ROS2 노드 갱신
     
  
