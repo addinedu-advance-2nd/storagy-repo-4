@@ -88,14 +88,27 @@ class RobotController(Node):
 
     def get_destination(self, msg):
         req_sys = msg.request_system
+        user_name = msg.user_name
         destination = msg.positions
+
         self.move_to_goal(destination)
-    
+
+        self.send_arrive_state(req_sys, user_name, is_arrived=True)
+
+    def send_arrive_state(self, request_system, user_name, is_arrived=True):
+        msg = RobotArriveState()
+        msg.is_arrived = is_arrived
+        msg.positions = [self.position['x'], self.position['y']]
+        msg.request_system = request_system
+        msg.user_name = user_name
+        self.robot_arrive_publisher.publish(msg)
+        print('arrived_goal')
     
     def move_to_goal(self, destination):    #움직임 실행 
         self.navigation_to_goal(destination[0])
-        self.manual_move([destination[1]])
+        self.manual_move(destination[1:])
     
+
 ##################### 네비게이션 패키지 동작 코드###############
 
     def navigation_to_goal(self, destination):  
@@ -146,7 +159,6 @@ class RobotController(Node):
         # 70cm 이내로 들어오면 네비게이션 종료
         if 0.01 < feedback.feedback.distance_remaining < 0.7 and feedback.feedback.navigation_time.sec > 1:
             self.cancel_goal()
-            self.send_arrive_state(is_arrived=True)
 
     def cancel_goal(self):
         if self.goal_handle is not None:
@@ -155,18 +167,13 @@ class RobotController(Node):
         else:
             self.get_logger().error('No goal to cancel')
     
-    def send_arrive_state(self, is_arrived=True):
-        msg = RobotArriveState()
-        msg.is_arrived = is_arrived
-        msg.positions = [self.position['x'], self.position['y']]
-        self.robot_arrive_publisher.publish(msg)
-        print('arrived_goal')
-        pass
 
 ############## 네비게이션 동작 코드 끝 ################
 ##################### 직접 조작 코드 ########################
 
     def manual_move(self, node_list):
+        if not node_list:
+            return
         for node in node_list:
             self.set_goal(node)
 
@@ -179,7 +186,7 @@ class RobotController(Node):
                 else:
                     self.PID_move(distnace_error, angle_error, angle_only=False)
         
-        self.send_arrive_state(is_arrived=True)
+
     
     def set_goal(self, node):
         self.goal_x = node[0]
