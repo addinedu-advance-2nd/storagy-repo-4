@@ -8,23 +8,27 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 class DepthScanSubscriber(Node):
-    def __init__(self):
+    def __init__(self, s_admin, topic_name):
         super().__init__('depth_scan_subscriber')
-        
-        # Depth 이미지와 LaserScan 메시지 구독
-        self.depth_subscription = self.create_subscription(
-            Image,
-            '/camera/depth/image_raw',
-            self.depth_image_callback,
-            10
-        )
-        
-        self.scan_subscription = self.create_subscription(
-            LaserScan,
-            '/scan',
-            self.scan_callback,
-            10
-        )
+        self.s_admin = s_admin
+        self.topic_name = topic_name
+
+        if self.topic_name == "/camera/depth/image_raw":
+            # Depth 이미지와 LaserScan 메시지 구독
+            self.depth_subscription = self.create_subscription(
+                Image,
+                '/camera/depth/image_raw',
+                self.depth_image_callback,
+                10
+            )
+            
+        elif self.topic_name == "/scan":
+            self.scan_subscription = self.create_subscription(
+                LaserScan,
+                '/scan',
+                self.scan_callback,
+                10
+            )
 
         self.bridge = CvBridge()
         
@@ -33,7 +37,7 @@ class DepthScanSubscriber(Node):
         self.ax_depth = self.fig.add_subplot(121, projection='3d')
         self.ax_scan = self.fig.add_subplot(122, projection='3d')
         plt.ion()  # Interactive mode 시작
-        #plt.show()
+        plt.show()
 
     def depth_image_callback(self, msg):
         # ROS 메시지 -> OpenCV 이미지로 변환
