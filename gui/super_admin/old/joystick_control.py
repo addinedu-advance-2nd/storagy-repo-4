@@ -42,6 +42,8 @@ class JoyStickControl(QMainWindow):
         pygame.init()  # Pygame 초기화
         joystick = pygame.joystick.Joystick(0)  # 첫 번째 조이스틱 연결
         joystick.init()  # 조이스틱 초기화
+
+        std_speed = 0.2
         
         while True:
             events = pygame.event.get()  # Pygame 이벤트를 받아옴
@@ -49,6 +51,25 @@ class JoyStickControl(QMainWindow):
                 if event.type == pygame.JOYAXISMOTION:
                     linear_x = joystick.get_axis(1)  # Y축 (앞뒤) 제어
                     angular_z = joystick.get_axis(0)  # X축 (왼쪽/오른쪽) 제어
+
+                    # 속도 방향 보정
+                    if linear_x < -0.8:
+                        linear_x = std_speed
+                    elif linear_x > 0.8:
+                        linear_x = std_speed*(-1)
+                    else :
+                        linear_x = 0.0
+
+                    if angular_z > 0.8:
+                        angular_z = std_speed
+                    elif angular_z < -0.8:
+                        angular_z = std_speed * (-1)
+                    else:
+                        angular_z = 0.0
+
+
+
+
                     self.robot_mover.send_command(linear_x=linear_x, angular_z=angular_z)
 
                     logger.info(f'Joystick Command: linear.x={linear_x}, angular.z={angular_z}')

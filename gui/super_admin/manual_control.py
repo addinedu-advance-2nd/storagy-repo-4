@@ -109,19 +109,19 @@ class KeyBoardControl(QMainWindow):
 
     def move_forward(self):
         print("전진")
-        return self.cmd_vel_pub.send_command(linear_x=0.5)
+        return self.cmd_vel_pub.send_command(linear_x=0.2)
 
     def move_backward(self):
         print("후진")
-        self.cmd_vel_pub.send_command(linear_x=-0.5)
+        self.cmd_vel_pub.send_command(linear_x=-0.2)
 
     def turn_left(self):
         print("좌회전")
-        self.cmd_vel_pub.send_command(linear_x=0.5, angular_z=0.5)
+        self.cmd_vel_pub.send_command(linear_x=0.2, angular_z=0.2)
 
     def turn_right(self):
         print("우회전")
-        self.cmd_vel_pub.send_command(linear_x=0.5, angular_z=-0.5)
+        self.cmd_vel_pub.send_command(linear_x=0.2, angular_z=-0.2)
 
     def stop(self):
         print("정지")
@@ -129,11 +129,11 @@ class KeyBoardControl(QMainWindow):
 
     def rotate_left(self):
         print("왼쪽 회전")
-        self.cmd_vel_pub.send_command(angular_z=1.0)
+        self.cmd_vel_pub.send_command(angular_z=0.2)
 
     def rotate_right(self):
         print("오른쪽 회전")
-        self.cmd_vel_pub.send_command(angular_z=-1.0)
+        self.cmd_vel_pub.send_command(angular_z=-0.2)
 
     def keyPressEvent(self, event):
         key = event.key()
@@ -186,8 +186,7 @@ class JoyStickControl(QMainWindow):
         joystick = pygame.joystick.Joystick(0)  # 첫 번째 조이스틱 연결
         joystick.init()  # 조이스틱 초기화
 
-
-        '''
+        std_speed = 0.2
         # 메인 루프
         running = True
         while running:
@@ -201,6 +200,22 @@ class JoyStickControl(QMainWindow):
                     # 조이스틱 제어
                     linear_x = joystick.get_axis(1)  # Y축 (앞뒤) 제어
                     angular_z = joystick.get_axis(0)  # X축 (왼쪽/오른쪽) 제어
+                    
+                    # 속도 방향 보정
+                    if linear_x < -0.8:
+                        linear_x = std_speed
+                    elif linear_x > 0.8:
+                        linear_x = std_speed*(-1)
+                    else :
+                        linear_x = 0.0
+
+                    if angular_z > 0.8:
+                        angular_z = std_speed
+                    elif angular_z < -0.8:
+                        angular_z = std_speed * (-1)
+                    else:
+                        angular_z = 0.0
+                        
                     self.cmd_vel_pub.send_command(linear_x=linear_x, angular_z=angular_z)
 
                     logger.info(f'Joystick Command: linear.x={linear_x}, angular.z={angular_z}')
@@ -208,7 +223,7 @@ class JoyStickControl(QMainWindow):
             # 이벤트가 없을 때도 다른 작업을 처리할 수 있도록
             # 예를 들어, 주기적인 작업 수행
             time.sleep(0.01)  # 잠깐 대기하여 CPU 부하를 줄임 (조정 가능)
-        '''
+        
         pygame.quit()  # Pygame 종료
 
 
