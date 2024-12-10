@@ -13,7 +13,7 @@ import pygame  # 조이스틱 입력 라이브러리
 import subprocess
 from PyQt5 import QtWidgets, uic, QtGui, QtCore
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QLabel, QWidget, QTabWidget, QFrame
-from PyQt5.QtCore import QTimer, QStringListModel
+from PyQt5.QtCore import QTimer, QStringListModel, Qt
 import rclpy as rp
 from rclpy.node import Node
 from std_msgs.msg import String
@@ -28,11 +28,15 @@ from battery_listener import BatteryListener
 from cmd_vel_listener import CmdVelListener
 from cam_stream import CameraThread
 from topic_tab import TopicTabView
+from motor_state_listener import MotorStateListener
+from odom_listener import OdomListener
+from cmd_vel_pub import CmdVelPub
+from manual_control import ManualControl
 
 
 #from gui.super_admin.super_topic import TopicSubscriber
 
-host = "192.168.0.4"  # 접속할 SSH 서버의 IP 주소나 도메인
+host = "192.168.0.179"  # 접속할 SSH 서버의 IP 주소나 도메인
 username = "storagy"  # SSH 접속에 사용할 사용자 이름
 password = "123412"   # SSH 접속에 사용할 비밀번호
 
@@ -74,8 +78,8 @@ class MainWindow(QMainWindow):
         self.s_admin.lidar_view.stateChanged.connect(self.view_3d_lidar_checkbox)
         self.s_admin.rgb_cam_view.stateChanged.connect(self.view_rgb_cam_checkbox)
         self.s_admin.safety_check_button.stateChanged.connect(lambda state: None)
-        self.s_admin.keyboard_control_button.toggled.connect(self.check_conditions)
-        self.s_admin.joystick_control_button.toggled.connect(self.check_conditions)
+        self.s_admin.keyboard_control_button.toggled.connect(self.keyboard_check_conditions)
+        self.s_admin.joystick_control_button.toggled.connect(self.joystick_check_conditions)
 
         # 창을 최대화된 상태로 표시
         self.showMaximized()
@@ -96,7 +100,7 @@ class MainWindow(QMainWindow):
         self.topic_layout.addWidget(self.topic_tap_view)
      
             
-            
+        '''    
         # 토픽 정보 탭
         tap_list = ["서비스", "센서,카메라", "네비게이션", "로봇 상태 및 제어", "지도 및 위치", "기타 이벤트 및 상태"]
         for tap in tap_list:
@@ -104,7 +108,7 @@ class MainWindow(QMainWindow):
             self.tabs.addTab(self.service_tab, tap)
             self.service_layout = QVBoxLayout()
             self.service_tab.setLayout(self.service_layout)
-
+        '''
 
 
         # 타이머 설정 (주기적으로 갱신)
@@ -113,51 +117,83 @@ class MainWindow(QMainWindow):
         self.timer.start(3000)  # 1초마다 실행
 
         # SSH 연결 확인을 위한 타이머 설정 (예시: 5초마다 연결 시도)
-        #self.timer_1 = QTimer(self)
-        #self.timer_1.timeout.connect(self.check_ssh_connection)
-        #self.timer_1.start(10000)  # 5초마다 체크
+        self.timer_1 = QTimer(self)
+        self.timer_1.timeout.connect(self.check_ssh_connection)
+        self.timer_1.start(10000)  # 10초마다 체크
 
 
-        #print(battery_listener)
-
-
-            # 배터리 상태 구독 노드 생성 및 실행
-        battery_listener = BatteryListener(s_admin)
-        cmd_vel_listener = CmdVelListener(s_admin)
-        #self.bat = battery_listener
-        print(battery_listener)
-
-        timer = QTimer()
-        timer.timeout.connect(lambda: rp.spin_once(battery_listener, timeout_sec=1))
-        timer.timeout.connect(lambda: rp.spin_once(cmd_vel_listener, timeout_sec=1))
-        timer.start(3000)  # 100ms마다 ROS2 노드 갱신
-
-
-
-    def check_conditions(self):
+    def keyboard_check_conditions(self):
         # 안전 확인이 되어 있는지 먼저 확인
         if self.s_admin.safety_check_button.isChecked() and self.s_admin.keyboard_control_button.isChecked():
             print("안전 확인 됨, 키보드로 선택됨")
-            self.storagy_control = KeyBoardControl(self.s_admin)
-        elif self.s_admin.safety_check_button.isChecked() and self.s_admin.joystick_control_button.isChecked():
-            print("안전 확인됨, 조이스틱으로 선택됨")
-            self.storagy_control = JoyStickControl(self.s_admin)
-            #self.storagy_control = StoragyControl(self.s_admin, self.joystick)
+            #self.storagy_control = KeyBoardControl(self.s_admin)
+            #self.key_board_control = KeyBoardControl(self.s_admin)
+            #self.manual_control = ManualControl(self.s_admin, "keyboard")
+            #print(self.key_board_control.send_command)
+            self.control_type = "keyboard"        
         else:
             pass
 
+        # manual_control이 실행되고 있으면 종료 후 재 실행
+        if hasattr(self, 'manual_control'):
+            del self.manual_control
+        self.manual_control = ManualControl(self.s_admin, self.control_type)
 
 
+
+
+    def joystick_check_conditions(self):
+        if self.s_admin.safety_check_button.isChecked() and self.s_admin.joystick_control_button.isChecked():
+            print("안전 확인됨, 조이스틱으로 선택됨")
+
+            #self.storagy_control = JoyStickControl(self.s_admin)
+            #self.storagy_control = StoragyControl(self.s_admin, self.joystick)
+            self.control_type = "joystick"
+        else:
+            pass
+        # manual_control이 실행되고 있으면 종료 후 재 실행
+        if hasattr(self, 'manual_control'):
+            del self.manual_control
+        self.manual_control = ManualControl(self.s_admin, self.control_type)
+
+    def keyPressEvent(self, event):
+        key = event.key()
+        print(f"Pressed key: {key}")
+
+        if self.s_admin.safety_check_button.isChecked() and self.s_admin.keyboard_control_button.isChecked():
+            # manual_control이 실행되고 있으면 종료 후 재 실행
+            if hasattr(self, 'manual_control'):
+                del self.manual_control
+            self.keyboard_control = KeyBoardControl(self.s_admin)
+
+            # 키보드 버튼에 따라 매핑된 버튼 클릭
+            if key == Qt.Key_W:
+                self.s_admin.move_forward_button.click()
+                #self.keyboard_control.move_forward()
+            elif key == Qt.Key_X:
+                self.s_admin.move_backward_button.click()
+            elif key == Qt.Key_A:
+                self.s_admin.turn_left_button.click()
+            elif key == Qt.Key_D:
+                self.s_admin.turn_right_button.click()
+            elif key == Qt.Key_S:
+                self.s_admin.stop_button.click()
+            elif key == Qt.Key_Q:
+                self.s_admin.rotate_left_button.click()
+            elif key == Qt.Key_E:
+                self.s_admin.rotate_right_button.click()
+            else:
+                super().keyPressEvent(event)
 
 
     def view_rgb_cam_checkbox(self, state):
         if state == 2:  # 체크박스가 선택되었을 때
             # 카메라 소스 선택
             # 1. 노트북 웹캠 (기본값)
-            camera_source = 0  
+            #camera_source = 0  
 
             # 2. ESP32-CAM (사용 시 주석 해제)
-            # camera_source = "http://192.168.0.100:81/stream"
+            camera_source = "http://192.168.0.101/mjpeg/1"
 
             # 3. ROS 카메라 토픽 `/camera/color/image_raw` (사용 시 OpenCV로 처리 필요, 주석 해제)
             # camera_source = "/camera/color/image_raw"
@@ -365,33 +401,6 @@ class MainWindow(QMainWindow):
 
  
         return ssid, ip_addresses[2]
-    '''
-class CamStream:
-    def __init__(self, s_admin):
-        self.s_admin = s_admin
-        # 카메라 소스 선택
-        # 1. 노트북 웹캠 (기본값)
-        camera_source = 0  
-
-        # 2. ESP32-CAM (사용 시 주석 해제)
-        # camera_source = "http://192.168.0.100:81/stream"
-
-        # 3. ROS 카메라 토픽 `/camera/color/image_raw` (사용 시 OpenCV로 처리 필요, 주석 해제)
-        # camera_source = "/camera/color/image_raw"
-
-
-
-        # 카메라 스레드 생성 및 신호 연결
-        self.camera_thread = CameraThread(camera_source)
-        self.camera_thread.frame_ready.connect(self.update_frame)
-
-    def update_frame(self, frame):
-        # QLabel에 프레임 표시
-        self.s_admin.rgb_cam.setPixmap(QPixmap.fromImage(frame))
-    '''
-    
-
-    
 
 
 def main():
@@ -418,18 +427,23 @@ def main():
     window.show()
         
 
-    '''
+    
     # 배터리 상태 구독 노드 생성 및 실행
     battery_listener = BatteryListener(s_admin)
     cmd_vel_listener = CmdVelListener(s_admin)
+    motor_state_listener = MotorStateListener(s_admin)
+    odom_listener = OdomListener(s_admin)
     #self.bat = battery_listener
     print(battery_listener)
 
+    
     timer = QTimer()
-    timer.timeout.connect(lambda: rp.spin_once(battery_listener, timeout_sec=1))
-    timer.timeout.connect(lambda: rp.spin_once(cmd_vel_listener, timeout_sec=1))
-    timer.start(3000)  # 100ms마다 ROS2 노드 갱신
-    '''
+    timer.timeout.connect(lambda: rp.spin_once(battery_listener, timeout_sec=0.1))
+    timer.timeout.connect(lambda: rp.spin_once(cmd_vel_listener, timeout_sec=0.1))
+    timer.timeout.connect(lambda: rp.spin_once(motor_state_listener, timeout_sec=0.1))
+    timer.timeout.connect(lambda: rp.spin_once(odom_listener, timeout_sec=0.1))
+    timer.start(300)  # 100ms마다 ROS2 노드 갱신
+    
  
     app.exec_()
 

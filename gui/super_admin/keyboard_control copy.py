@@ -4,9 +4,7 @@ from geometry_msgs.msg import Twist
 from PyQt5.QtWidgets import QMainWindow, QApplication, QPushButton
 from PyQt5.QtCore import Qt, QThread
 import sys
-from cmd_vel_pub import CmdVelPub
 
-'''
 # ROS 2 노드 (RobotMover)
 class RobotMover(Node):
     def __init__(self):
@@ -30,7 +28,7 @@ class RclpyThread(QThread):
     def __init__(self, node):
         super().__init__()
         self.node = node
-'''
+
 
 # PyQt GUI (KeyBoardControl)
 class KeyBoardControl(QMainWindow):
@@ -39,7 +37,7 @@ class KeyBoardControl(QMainWindow):
         self.s_admin = s_admin
         self.setWindowTitle("Robot Controller")
 
-        self.cmd_vel_pub = CmdVelPub()  # ROS 2 노드 초기화
+        self.robot_mover = RobotMover()  # ROS 2 노드 초기화
         self.setup_ui()
 
         # 포커스를 받을 수 있도록 설정
@@ -47,10 +45,8 @@ class KeyBoardControl(QMainWindow):
         self.setFocus()  # 윈도우가 열리면 포커스 설정
 
         # ROS 2 스핀을 위한 스레드 시작
-        #self.rclpy_thread = RclpyThread(self.robot_mover)
-        #self.rclpy_thread.start()
-
-        
+        self.rclpy_thread = RclpyThread(self.robot_mover)
+        self.rclpy_thread.start()
 
         
 
@@ -77,31 +73,31 @@ class KeyBoardControl(QMainWindow):
 
     def move_forward(self):
         print("전진")
-        return self.cmd_vel_pub.send_command(linear_x=0.5)
+        self.robot_mover.send_command(linear_x=0.5)
 
     def move_backward(self):
         print("후진")
-        self.cmd_vel_pub.send_command(linear_x=-0.5)
+        self.robot_mover.send_command(linear_x=-0.5)
 
     def turn_left(self):
         print("좌회전")
-        self.cmd_vel_pub.send_command(linear_x=0.5, angular_z=0.5)
+        self.robot_mover.send_command(linear_x=0.5, angular_z=0.5)
 
     def turn_right(self):
         print("우회전")
-        self.cmd_vel_pub.send_command(linear_x=0.5, angular_z=-0.5)
+        self.robot_mover.send_command(linear_x=0.5, angular_z=-0.5)
 
     def stop(self):
         print("정지")
-        self.cmd_vel_pub.send_command()
+        self.robot_mover.send_command()
 
     def rotate_left(self):
         print("왼쪽 회전")
-        self.cmd_vel_pub.send_command(angular_z=1.0)
+        self.robot_mover.send_command(angular_z=1.0)
 
     def rotate_right(self):
         print("오른쪽 회전")
-        self.cmd_vel_pub.send_command(angular_z=-1.0)
+        self.robot_mover.send_command(angular_z=-1.0)
 
     def keyPressEvent(self, event):
         key = event.key()
@@ -125,18 +121,6 @@ class KeyBoardControl(QMainWindow):
             self.rotate_right()
         else:
             super().keyPressEvent(event)
-
-    def send_command(self, linear_x=0.0, angular_z=0.0):
-        self.linear_x = linear_x
-        self.angular_z = angular_z
-        print(self.linear_x, self.angular_z)
-        return self.linear_x, self.angular_z
-    
-
-
-
-
-    
 
 
 # 메인 함수

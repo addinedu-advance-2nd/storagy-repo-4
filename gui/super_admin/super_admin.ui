@@ -139,31 +139,13 @@
      <string>IP  :</string>
     </property>
    </widget>
-   <widget class="QLabel" name="label_9">
-    <property name="geometry">
-     <rect>
-      <x>490</x>
-      <y>150</y>
-      <width>71</width>
-      <height>21</height>
-     </rect>
-    </property>
-    <property name="font">
-     <font>
-      <pointsize>15</pointsize>
-     </font>
-    </property>
-    <property name="text">
-     <string>온도 :</string>
-    </property>
-   </widget>
    <widget class="QLabel" name="cmd_vel">
     <property name="geometry">
      <rect>
       <x>490</x>
-      <y>190</y>
-      <width>271</width>
-      <height>31</height>
+      <y>170</y>
+      <width>351</width>
+      <height>81</height>
      </rect>
     </property>
     <property name="font">
@@ -553,10 +535,10 @@
    <widget class="QLabel" name="label_3">
     <property name="geometry">
      <rect>
-      <x>550</x>
-      <y>20</y>
-      <width>141</width>
-      <height>61</height>
+      <x>700</x>
+      <y>0</y>
+      <width>241</width>
+      <height>81</height>
      </rect>
     </property>
     <property name="font">
@@ -567,32 +549,17 @@
     <property name="text">
      <string>로봇 정보</string>
     </property>
-   </widget>
-   <widget class="QLabel" name="label_4">
-    <property name="geometry">
-     <rect>
-      <x>900</x>
-      <y>20</y>
-      <width>201</width>
-      <height>61</height>
-     </rect>
-    </property>
-    <property name="font">
-     <font>
-      <pointsize>20</pointsize>
-     </font>
-    </property>
-    <property name="text">
-     <string>시스템 진단 정보</string>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
     </property>
    </widget>
-   <widget class="QLabel" name="battery_voltage_2">
+   <widget class="QLabel" name="motor_state">
     <property name="geometry">
      <rect>
-      <x>830</x>
+      <x>890</x>
       <y>90</y>
-      <width>311</width>
-      <height>41</height>
+      <width>441</width>
+      <height>191</height>
      </rect>
     </property>
     <property name="font">
@@ -607,9 +574,9 @@
    <widget class="QLabel" name="battery_voltage_3">
     <property name="geometry">
      <rect>
-      <x>830</x>
-      <y>140</y>
-      <width>311</width>
+      <x>890</x>
+      <y>290</y>
+      <width>431</width>
       <height>41</height>
      </rect>
     </property>
@@ -640,13 +607,13 @@
      <string>요청 속도 :</string>
     </property>
    </widget>
-   <widget class="QLabel" name="cmd_vel_2">
+   <widget class="QLabel" name="odom">
     <property name="geometry">
      <rect>
       <x>490</x>
-      <y>230</y>
-      <width>271</width>
-      <height>31</height>
+      <y>290</y>
+      <width>361</width>
+      <height>131</height>
      </rect>
     </property>
     <property name="font">
@@ -655,7 +622,7 @@
      </font>
     </property>
     <property name="text">
-     <string>AMCL 알고리즘 단계 : </string>
+     <string>Odom</string>
     </property>
    </widget>
    <widget class="QRadioButton" name="keyboard_control_button">
