@@ -1,2 +1,2 @@
 string request_system
-float32[] positions
+float32[][] positions

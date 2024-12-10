@@ -7,12 +7,13 @@ class PrintPublisher(Node):
     def __init__(self):
         super().__init__('print_publisher')  # 노드 이름
         self.publisher_ = self.create_publisher(RobotRecevieMoving, '/moving_receive', 10)  # 주제 이름    
-        self.timer = self.create_timer(1.0, self.timer_callback)  # 1초 간격으로 호출
+        self.timer = self.create_timer(1.0, self.send_callback)  # 1초 간격으로 호출
+        
 
-    def timer_callback(self):
+    def send_callback(self, user_name):       
         msg = RobotRecevieMoving()
         msg.request_system = 'print'  # 메시지 내용
-        msg.user_name = '안태규'  # 메시지 내용
+        msg.user_name = user_name  # 메시지 내용
         self.publisher_.publish(msg)
         self.get_logger().info('Publishing: "%s"' % msg.request_system)
 
@@ -20,7 +21,7 @@ def main(args=None):
     rclpy.init(args=args)  # ROS 2 초기화
     publisher = PrintPublisher()
 
-    rclpy.spin(publisher)  # 노드 실행
+    rclpy.spin_once(publisher)  # 노드 실행
 
     publisher.destroy_node()
     rclpy.shutdown()

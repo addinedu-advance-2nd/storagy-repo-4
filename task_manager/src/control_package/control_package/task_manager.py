@@ -13,9 +13,11 @@ import json
 class TaskManager(Node):
     def __init__(self):
         super().__init__('task_manager')
+
+        print("init 호출");
         
         # 구독 - 샘플 테스트용     
-        #self.subscription = self.create_subscription(String,'simple_topic',  self.listener_callback, 10)  # 큐 크기       
+        self.subscription = self.create_subscription(String,'simple_topic',  self.listener_callback, 10)  # 큐 크기       
 
         # 구독 - 스토리지 이동 요청 받기 (채팅봇, 프린터기 -> 매니저)
         self.receive_move_subscriber = self.create_subscription(RobotRecevieMoving, '/moving_receive', self.receive_callback, 10)
@@ -30,14 +32,22 @@ class TaskManager(Node):
         user_name = msg.user_name    
 
         # 구독한 메시지를 출력
-        self.get_logger().info('I heard: "%s"' % system_name)
+        self.get_logger().info('I heard: "%s"' % system_name) 
+        print('user_name : '+user_name)        
 
-        print('user_name : '+user_name)           
+        
+        # 스토리지로 움직임 요청 발행
         if system_name == "print":
             print('프린터 시스템에서 호출')           
                
         else:
-            print('챗봇 시스템에서 호출')             
+            print('챗봇 시스템에서 호출')    
+            
+        send_msg = RobotRequestMoving()
+        send_msg.request_system = system_name  # 메시지 내용
+        send_msg.positions = [] # 메시지 내용
+        self.request_move_publisher.publish(send_msg)
+        self.get_logger().info('Publishing: "%s"' % send_msg.request_system)         
 
     def listener_callback(self, msg):
         # 구독한 메시지를 출력
@@ -50,7 +60,7 @@ def main(args=None):
     executor.add_node(task_manager)
   
     try:
-        executor.spin()
+        executor.spin_once()
 
     finally:
         executor.shutdown()

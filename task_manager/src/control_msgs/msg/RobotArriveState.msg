@@ -1,2 +1,2 @@
 bool is_arrived
-float32[] positions
+float32[][] positions
