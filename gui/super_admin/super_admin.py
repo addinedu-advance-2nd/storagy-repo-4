@@ -40,6 +40,11 @@ host = "192.168.0.179"  # 접속할 SSH 서버의 IP 주소나 도메인
 username = "storagy"  # SSH 접속에 사용할 사용자 이름
 password = "123412"   # SSH 접속에 사용할 비밀번호
 
+# ROS_DOMAIN_ID 환경 변수 읽기
+ros_domain_id = os.getenv("ROS_DOMAIN_ID", "Default Domain ID Not Set")
+
+print(f"ROS Domain ID: {ros_domain_id}")
+
 
 
 class MainWindow(QMainWindow):
@@ -154,6 +159,7 @@ class MainWindow(QMainWindow):
         # manual_control이 실행되고 있으면 종료 후 재 실행
         if hasattr(self, 'manual_control'):
             del self.manual_control
+
         self.manual_control = ManualControl(self.s_admin, self.control_type)
 
     def keyPressEvent(self, event):
