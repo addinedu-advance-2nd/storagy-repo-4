@@ -11,6 +11,7 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import String
 
 import math
+import time
 
 PositionDict = {'init':[0, 0],
                 'printer':[0, 1],
@@ -66,100 +67,47 @@ class RobotController(Node):
         self._action_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         self.move_subscriber = self.create_subscription(String, '/dest_order', self.get_destination, 10)
         
-        self.cmd_vel_publisher = self.create_publisher(Twist, '/base_controller/cmd_vel_unstamped', 10)
+        self.cmd_vel_publisher = self.create_publisher(Twist, '/cmd_vel', 10)
         self.amcl_subscriber = self.create_subscription(PoseWithCovarianceStamped, '/amcl_pose', self.amcl_pose_callback, 10)
         
         self.goal_handle = None
-        self.move_to_goal('corridor3')
-        # self.send_goal([1.0, 0.0])
-
         
-        self.pid_linear = PID(P=1.0, I=0., D=0.03, max_state=1.0, min_state=-1.0, dt=0.1)
-        self.pid_angular = PID(P=2.0, I=0., D=0.0, max_state=1.0, min_state=-1.0, dt=0.1)
+        self.position = {'x': 0.0, 'y': 0.0, 'theta': 0.0}
+        self.pid_linear = PID(P=0.1, I=0., D=0.03, max_state=0.1, min_state=-0.1, dt=0.1)
+        self.pid_angular = PID(P=0.2, I=0., D=0.0, max_state=0.1, min_state=-0.1, dt=0.1)
 
         self.goal_x = None
         self.goal_y = None
         self.goal_angle = None
 
-        self.position = {'x': 0.0, 'y': 0.0, 'theta': 0.0}
+        self.move_to_goal('corridor3')
+        # self.send_goal([1.0, 0.0])
 
     def get_destination(self, msg):
         self.move_to_goal(msg)
     
     
     def move_to_goal(self, destination):
-        self.navigation_to_goal(destination)
-        self.manual_move()
-    
-    def navigation_to_goal(self, destination):
-        self.send_goal(PositionDict[destination])
+        self.manual_move(PositionDict[destination])
 
-    def send_goal(self, position):
-        # 목표 위치 설정 (예: (x=2, y=2))
-        goal = NavigateToPose.Goal()
 
-        goal.pose.header.frame_id = 'map'
-        goal.pose.header.stamp = self.get_clock().now().to_msg()
-        goal.pose.pose.position.x = position[0]
-        goal.pose.pose.position.y = position[1]
-        # goal.pose.pose.orientation.w = 1.0  # 로봇의 방향 설정 (회전 없이 직진)
-        
-        self._action_client.wait_for_server()
-
-        # 액션 서버로 목표를 전송
-        self._send_goal_future = self._action_client.send_goal_async(goal, feedback_callback=self.feedback_callback)
-        self._send_goal_future.add_done_callback(self.goal_response_callback)
-
-    def goal_response_callback(self, future):
-        # 액션 서버의 목표 응답을 처리
-        self.goal_handle = future.result()
-        if self.goal_handle.accepted:
-            self.get_logger().info('Goal accepted, waiting for result...')
-            self._result_future = future.result().get_result_async()
-            self._result_future.add_done_callback(self.result_callback)
-        else:
-            self.get_logger().error('Goal rejected')
-
-    def result_callback(self, future):
-        # 결과가 완료되면 호출되는 콜백
-        result = future.result().result
-        if result:
-            self.get_logger().info('Goal succeeded!')
-
-    def feedback_callback(self, feedback):
-        # 피드백이 올 때마다 호출되는 콜백
-        self.get_logger().info(f'Feedback: {feedback.feedback}')
-        
-        print(feedback.feedback.distance_remaining)
-        print(feedback.feedback.navigation_time.sec)
-
-        if 0.01 < feedback.feedback.distance_remaining < 0.7 and feedback.feedback.navigation_time.sec > 1:
-            self.cancel_goal()
-
-    def cancel_goal(self):
-        if self.goal_handle is not None:
-            self.get_logger().info('Cancelling the goal')
-            self._action_client._cancel_goal_async(self.goal_handle)
-        else:
-            self.get_logger().error('No goal to cancel')
-
-##################### 여기서부터 의사코드 입니다 ########################
-    def manual_move(self, node_list):
-        for node in node_list:
-            self.set_goal(node)
+##################### 여기서부터 직접조작 ########################
+    def manual_move(self, node):
+        self.set_goal(node)
+        distnace_error = self.remain_distance()
+        while distnace_error > 0.4:
             distnace_error = self.remain_distance()
-            while distnace_error > 0.4:
-                distnace_error = self.remain_distance()
-                angle_error = self.distance_angle_diff()
-                if angle_error > 0.3:
-                    self.PID_move(distnace_error, angle_error, angle_only=True)
-                else:
-                    self.PID_move(distnace_error, angle_error, angle_only=False)
-    
+            angle_error = self.distance_angle_diff()
+            if angle_error > 0.3:
+                self.PID_move(distnace_error, angle_error, angle_only=True)
+            else:
+                self.PID_move(distnace_error, angle_error, angle_only=False)
+            time.sleep(0.1)
+
     def set_goal(self, node):
         self.goal_x = node[0]
         self.goal_y = node[1]
-        self.goal_angle = node[2]
+        # self.goal_angle = node[2]
     
     def remain_distance(self):
         return math.sqrt((self.goal_x-self.position['x'])**2 + (self.goal_y-self.position['y'])**2)
@@ -191,6 +139,7 @@ class RobotController(Node):
             twist.linear.x = linear_speed
         
         self.cmd_vel_publisher.publish(twist) 
+        print(twist)
     
     def estimate_pose_with_aruco_marker(self):
         detected_position = None
@@ -215,7 +164,7 @@ class RobotController(Node):
         self.position['x'] = msg.pose.pose.position.x
         self.position['y'] = msg.pose.pose.position.y
         _, _, self.position['theta'] = self.get_euler_from_quaternion(msg.pose.pose.orientation)
-        print(self.position['x'], self.position['y'], self.position['theta'])
+        print('amcl pose:', self.position['x'], self.position['y'], self.position['theta'])
         
     def get_euler_from_quaternion(self, quaternion):       
         (x, y, z, w) = (quaternion.x, quaternion.y, quaternion.z, quaternion.w)
@@ -231,9 +180,8 @@ class RobotController(Node):
         yaw = math.atan2(t3, t4)
         return [yaw, pitch, roll]
 
-####################### 의사코드 끝 #######################
+#################### 여기까지 직접조작 ################
 
-        
 def main(args=None):
 
     rp.init(args=args)
