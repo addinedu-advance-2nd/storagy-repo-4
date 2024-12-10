@@ -14,13 +14,15 @@ import math
 
 PositionDict = {'init':[0, 0],
                 'printer':[0, 1],
-                'corridor1':[0.25, 0.74],
-                'corridor2':[2.3, 0.57],
-                'corridor3':[3.2, 0.78],
+                'corridor1':[0.22, 0.59],
+                'corridor2':[2.3, 0.47],
+                'corridor3':[3.5, 0.78],
                 'A1':[0.17, 1.71],
-                'A2':[0.2, 2.3],
+                'A2':[0.16, 2.4],
                 'B1':[2.3, 1.67],
                 'B2':[2.3, 2.45],
+                'C1':[4.05, 1.05],
+                'C2':[1.05, 2]
                 }
 
 class PID:
@@ -66,7 +68,7 @@ class RobotController(Node):
         self._action_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         self.move_subscriber = self.create_subscription(String, '/dest_order', self.get_destination, 10)
         
-        self.cmd_vel_publisher = self.create_publisher(Twist, '/base_controller/cmd_vel_unstamped', 10)
+        self.cmd_vel_publisher = self.create_publisher(Twist, '/cmd_vel', 10)
         self.amcl_subscriber = self.create_subscription(PoseWithCovarianceStamped, '/amcl_pose', self.amcl_pose_callback, 10)
         
         self.goal_handle = None
@@ -87,11 +89,13 @@ class RobotController(Node):
         self.move_to_goal(msg)
     
     
-    def move_to_goal(self, destination):
+    def move_to_goal(self, destination):    #움직임 실행 
         self.navigation_to_goal(destination)
         self.manual_move()
     
-    def navigation_to_goal(self, destination):
+##################### 네비게이션 패키지 동작 코드###############
+
+    def navigation_to_goal(self, destination):  
         self.send_goal(PositionDict[destination])
 
     def send_goal(self, position):
@@ -126,6 +130,8 @@ class RobotController(Node):
         if result:
             self.get_logger().info('Goal succeeded!')
 
+        # 여기 도착 완료 토픽 발행, 아이디, 주문 같이 반환
+
     def feedback_callback(self, feedback):
         # 피드백이 올 때마다 호출되는 콜백
         self.get_logger().info(f'Feedback: {feedback.feedback}')
@@ -133,6 +139,7 @@ class RobotController(Node):
         print(feedback.feedback.distance_remaining)
         print(feedback.feedback.navigation_time.sec)
 
+        # 70cm 이내로 들어오면 네비게이션 종료
         if 0.01 < feedback.feedback.distance_remaining < 0.7 and feedback.feedback.navigation_time.sec > 1:
             self.cancel_goal()
 
@@ -143,10 +150,13 @@ class RobotController(Node):
         else:
             self.get_logger().error('No goal to cancel')
 
+############## 네비게이션 동작 코드 끝 ################
 ##################### 여기서부터 의사코드 입니다 ########################
+
     def manual_move(self, node_list):
         for node in node_list:
             self.set_goal(node)
+
             distnace_error = self.remain_distance()
             while distnace_error > 0.4:
                 distnace_error = self.remain_distance()
