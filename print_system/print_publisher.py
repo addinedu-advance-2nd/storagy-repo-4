@@ -12,7 +12,7 @@ class PrintPublisher(Node):
     def timer_callback(self):
         msg = RobotRecevieMoving()
         msg.request_system = 'print'  # 메시지 내용
-        msg.user_name = '황정민'  # 메시지 내용
+        msg.user_name = '안태규'  # 메시지 내용
         self.publisher_.publish(msg)
         self.get_logger().info('Publishing: "%s"' % msg.request_system)
 
