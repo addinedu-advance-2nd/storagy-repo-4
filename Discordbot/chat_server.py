@@ -7,7 +7,7 @@ import os
 import shutil
 import requests
 import asyncio
-
+from control_msgs.msg import RobotRecevieMoving
 TOKEN = ""
 
 intents = discord.Intents.default()
@@ -35,16 +35,20 @@ def copy_to_local_folder(src_path, dest_folder, user_name):
 class DiscordBot(Node):
     def __init__(self):
         super().__init__('discord_bot')
-        self.publisher_ = self.create_publisher(String, 'simple_topic', 10)
+        #self.publisher_ = self.create_publisher(String, 'simple_topic', 10)
+        self.publisher_ = self.create_publisher(RobotRecevieMoving, '/moving_receive', 10)  # 주제 이름    
         # self.user_info = user_info  # 사용자 정보 저장
         self.get_logger().info("DiscordBot node has started.")
         self.timer = self.create_timer(1.0, self.send_command)  # 1초 간격으로 호출
 
     def send_command(self, user_info):
-        msg = String()
-        msg.data = f"Command: 'sehyeonkim', {user_info}"  # 사용자 정보 포함
+        ##msg = String()
+        ##msg.data = f"Command: 'sehyeonkim', {user_info}"  # 사용자 정보 포함
+        msg = RobotRecevieMoving()
+        msg.request_system = 'chatbot'  # 메시지 내용
+        msg.user_name =  user_info # 메시지 내용
         self.publisher_.publish(msg)
-        self.get_logger().info(f"Publishing: '{msg.data}'")
+        self.get_logger().info(f"Publishing: '{user_info}'")
 
 rclpy.init()
 
@@ -70,7 +74,7 @@ async def robot_command(ctx, *, command=None):
     user = ctx.author
     user_info = f"User: {user.name} ({user.id}), Nickname: {user.display_name}"
     await ctx.send(f"Sending command to robot: {command}")
-    await send_to_robot(command, user_info)
+    await send_to_robot(command, user.display_name)
     await ctx.send(f"명령 '{command}'을 로봇으로 전송했습니다.")
 
 
