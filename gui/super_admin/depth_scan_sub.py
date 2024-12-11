@@ -13,7 +13,7 @@ class DepthScanSubscriber(Node):
         self.s_admin = s_admin
         self.topic_name = topic_name
 
-        if self.topic_name == "/camera/depth/image_raw":
+        if self.topic_name == "/camera/depth/image_raw" :
             # Depth 이미지와 LaserScan 메시지 구독
             self.depth_subscription = self.create_subscription(
                 Image,
@@ -115,7 +115,9 @@ class DepthScanSubscriber(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    depth_scan_subscriber = DepthScanSubscriber()
+    s_admin = None
+    node_name = "/scan"
+    depth_scan_subscriber = DepthScanSubscriber(s_admin, node_name)
     
     try:
         rclpy.spin(depth_scan_subscriber)
