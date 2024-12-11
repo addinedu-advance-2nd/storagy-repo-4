@@ -251,8 +251,8 @@ class MainWindow(QMainWindow):
                 self.view_3d_dep_layout = self.view_3d_lidar.layout()
 
             self.view_3d_lidar_layout = self.view_3d_lidar.layout()
-            #self.imu_widget_lidar = IMUVisualization("/scan")
-            self.imu_widget_lidar = DepthScanSubscriber(self.s_admin, "/scan")
+            self.imu_widget_lidar = IMUVisualization("lidar")
+            #self.imu_widget_lidar = DepthScanSubscriber(self.s_admin, "/scan")
             self.view_3d_lidar_layout.addWidget(self.imu_widget_lidar)
         else:
             if self.view_3d_dep.layout() is not None:
@@ -284,8 +284,8 @@ class MainWindow(QMainWindow):
                 self.view_3d_dep_layout = self.view_3d_dep.layout()
 
             self.view_3d_dep_layout = self.view_3d_dep.layout()
-            #self.imu_widget_dep = IMUVisualization("/camera/depth/image_raw")
-            self.imu_widget_lidar = DepthScanSubscriber("/camera/depth/image_raw")
+            self.imu_widget_dep = IMUVisualization("depth_camera")
+            #self.imu_widget_lidar = DepthScanSubscriber("/camera/depth/image_raw")
             self.view_3d_dep_layout.addWidget(self.imu_widget_dep)
         else:
             if self.view_3d_dep.layout() is not None:
