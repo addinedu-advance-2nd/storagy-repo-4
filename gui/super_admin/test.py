@@ -1,129 +1,124 @@
-import sys
-import numpy as np
 import rclpy
 from rclpy.node import Node
-from nav2_msgs.srv import GetCostmap  # nav2_msgs.srv 패키지에서 GetCostmap 가져오기
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QGraphicsView, QGraphicsScene
-from PyQt5.QtGui import QImage, QPixmap
-from PyQt5.QtCore import Qt
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
+import cv2 as cv
+from cv2 import aruco
+import numpy as np
 
-class HeatmapViewer(Node):
+# Load in the calibration data
+calib_data_path = "aruco_distance_estimation/calib_data/MultiMatrix.npz"
+calib_data = np.load(calib_data_path)
+print(calib_data.files)
+
+cam_mat = calib_data["camMatrix"]
+dist_coef = calib_data["distCoef"]
+r_vectors = calib_data["rVector"]
+t_vectors = calib_data["tVector"]
+
+MARKER_SIZE = 5  # centimeters (measure your printed marker size)
+marker_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
+param_markers = aruco.DetectorParameters()
+
+class ArucoMarkerDetector(Node):
     def __init__(self):
-        super().__init__('costmap_viewer')
-
-        # /local_costmap/get_costmap 서비스 클라이언트 생성
-        self.local_costmap_client = self.create_client(GetCostmap, '/local_costmap/get_costmap')
-        self.global_costmap_client = self.create_client(GetCostmap, '/global_costmap/get_costmap')
-
-        # 버튼 생성 및 클릭 이벤트 연결
-        self.button_local = QPushButton('Generate Local Costmap')
-        self.button_local.setParent(self)  # 부모 위젯 설정
-        self.button_local.clicked.connect(self.fetch_local_costmap)
-
-        self.button_global = QPushButton('Generate Global Costmap')
-        self.button_global.setParent(self)  # 부모 위젯 설정
-        self.button_global.clicked.connect(self.fetch_global_costmap)
-
-        # 버튼 레이아웃 설정
-        button_layout = QVBoxLayout()
-        button_layout.addWidget(self.button_local)
-        button_layout.addWidget(self.button_global)
+        super().__init__('aruco_marker_detector')
         
-        # 두 개의 뷰 생성
-        self.view_local = QGraphicsView(self)
-        self.view_global = QGraphicsView(self)
+        # Create a CvBridge object to convert ROS Image messages to OpenCV format
+        self.bridge = CvBridge()
 
-        # 각 뷰에 대해 장면 설정
-        self.scene_local = QGraphicsScene()
-        self.view_local.setScene(self.scene_local)
+        # Subscriber for the camera image
+        self.image_subscriber = self.create_subscription(
+            Image,
+            '/camera/color/image_raw',  # Adjust the topic name if necessary
+            self.image_callback,
+            10
+        )
 
-        self.scene_global = QGraphicsScene()
-        self.view_global.setScene(self.scene_global)
-
-        # 메인 레이아웃 설정
-        layout = QHBoxLayout()
-        layout.addLayout(button_layout)
-        layout.addWidget(self.view_local)
-        layout.addWidget(self.view_global)
-
-        self.setLayout(layout)
-
-    def fetch_local_costmap(self):
-        if not self.local_costmap_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().warn('Service /local_costmap/get_costmap not available.')
-            return
-        
-        request = GetCostmap.Request()
-        future = self.local_costmap_client.call_async(request)
-        future.add_done_callback(self.handle_local_costmap_response)
-
-    def fetch_global_costmap(self):
-        if not self.global_costmap_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().warn('Service /global_costmap/get_costmap not available.')
-            return
-        
-        request = GetCostmap.Request()
-        future = self.global_costmap_client.call_async(request)
-        future.add_done_callback(self.handle_global_costmap_response)
-
-    def handle_local_costmap_response(self, future):
+    def image_callback(self, msg):
+        # Convert the ROS image message to OpenCV format
         try:
-            response = future.result()
-            costmap_data = np.array(response.data, dtype=np.uint8).reshape(response.info.height, response.info.width)
-
-            # 히트맵을 위한 데이터 처리
-            costmap_array = np.interp(costmap_data, (costmap_data.min(), costmap_data.max()), (0, 255)).astype(np.uint8)
-
-            # QImage로 변환
-            image = QImage(costmap_array.data, costmap_array.shape[1], costmap_array.shape[0], costmap_array.shape[1], QImage.Format_Grayscale8)
-
-            # 이미지 확대
-            zoomed_image = image.scaled(image.width() * 10, image.height() * 10, Qt.KeepAspectRatio)
-
-            # QPixmap으로 변환
-            pixmap = QPixmap(zoomed_image)
-
-            # 로컬 비용맵 뷰에 표시
-            self.scene_local.clear()
-            self.scene_local.addPixmap(pixmap)
-
+            cv_image = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
         except Exception as e:
-            self.get_logger().error(f"Service call failed: {e}")
+            self.get_logger().error(f"Error converting ROS image to OpenCV format: {e}")
+            return
 
-    def handle_global_costmap_response(self, future):
-        try:
-            response = future.result()
-            costmap_data = np.array(response.data, dtype=np.uint8).reshape(response.info.height, response.info.width)
+        # Convert the image to grayscale for ArUco marker detection
+        gray_frame = cv.cvtColor(cv_image, cv.COLOR_BGR2GRAY)
 
-            # 히트맵을 위한 데이터 처리
-            costmap_array = np.interp(costmap_data, (costmap_data.min(), costmap_data.max()), (0, 255)).astype(np.uint8)
+        # Detect ArUco markers
+        marker_corners, marker_IDs, reject = aruco.detectMarkers(
+            gray_frame, marker_dict, parameters=param_markers
+        )
 
-            # QImage로 변환
-            image = QImage(costmap_array.data, costmap_array.shape[1], costmap_array.shape[0], costmap_array.shape[1], QImage.Format_Grayscale8)
+        # If markers are detected
+        if marker_corners is not None and marker_IDs is not None:
+            # Filter out markers with IDs outside the specified range (0-6)
+            valid_indices = (marker_IDs.flatten() >= 0) & (marker_IDs.flatten() <= 6)
+            filtered_corners = [marker_corners[i] for i, valid in enumerate(valid_indices) if valid]
+            filtered_ids = marker_IDs[valid_indices]
 
-            # 이미지 확대
-            zoomed_image = image.scaled(image.width() * 10, image.height() * 10, Qt.KeepAspectRatio)
+            # Estimate pose for each marker
+            rVec, tVec, _ = aruco.estimatePoseSingleMarkers(
+                filtered_corners, MARKER_SIZE, cam_mat, dist_coef
+            )
 
-            # QPixmap으로 변환
-            pixmap = QPixmap(zoomed_image)
+            # Iterate over each marker
+            for i, (ids, corners) in enumerate(zip(filtered_ids, filtered_corners)):
+                # Draw the marker's bounding box
+                cv.polylines(
+                    cv_image, [corners.astype(np.int32)], True, (0, 255, 255), 4, cv.LINE_AA
+                )
+                corners = corners.reshape(4, 2).astype(int)
+                top_left, top_right, bottom_right, bottom_left = corners
+                middle_right = ((top_right + bottom_right) / 2).astype(np.int32)
 
-            # 글로벌 비용맵 뷰에 표시
-            self.scene_global.clear()
-            self.scene_global.addPixmap(pixmap)
+                # Extract translation and rotation vectors
+                x, y, z = tVec[i][0]  # Extract x, y, z from translation vector
+                roll, pitch, yaw = rVec[i][0]  # Extract roll, pitch, yaw from rotation vector
 
-        except Exception as e:
-            self.get_logger().error(f"Service call failed: {e}")
+                # Draw the axes on the marker
+                cv.drawFrameAxes(cv_image, cam_mat, dist_coef, rVec[i], tVec[i], 4, 4)
+
+                # Put the marker's ID and distance on the image
+                cv.putText(
+                    cv_image,
+                    f"id: {ids[0]} Dist: {round(np.sqrt(x**2 + y**2 + z**2), 2)}",
+                    top_right,
+                    cv.FONT_HERSHEY_PLAIN,
+                    1.3,
+                    (0, 0, 255),  # BGR
+                    2,
+                    cv.LINE_AA,
+                )
+
+                # Put the position information (x, y, z) on the image
+                cv.putText(
+                    cv_image,
+                    f"x: {x:.2f} y: {y:.2f} z: {z:.2f}",
+                    bottom_right,
+                    cv.FONT_HERSHEY_PLAIN,
+                    1.0,
+                    (255, 0, 0),  # BGR
+                    2,
+                    cv.LINE_AA,
+                )
+
+        # Display the processed image with detected markers
+        cv.imshow("ArUco Marker Detection", cv_image)
+        key = cv.waitKey(1)
+        if key == ord('q'):  # Exit on 'q' key press
+            cv.destroyAllWindows()
 
 def main():
     rclpy.init()
+    aruco_marker_detector = ArucoMarkerDetector()
 
-    app = QApplication(sys.argv)
-    viewer = HeatmapViewer()
+    # Spin the ROS 2 node to keep it running and processing the images
+    rclpy.spin(aruco_marker_detector)
 
-    viewer.show()
-    rclpy.spin(viewer)
-
-    app.exec_()
+    # Clean up and shutdown
+    aruco_marker_detector.destroy_node()
     rclpy.shutdown()
 
 if __name__ == '__main__':
