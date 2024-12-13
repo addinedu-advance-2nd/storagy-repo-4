@@ -33,6 +33,8 @@ from odom_listener import OdomListener
 from cmd_vel_pub import CmdVelPub
 from manual_control import ManualControl
 from depth_scan_sub import DepthScanSubscriber
+from topic_viewer import TopicViewer
+from service_viewer import ServiceViewer
 
 
 #from gui.super_admin.super_topic import TopicSubscriber
@@ -100,10 +102,24 @@ class MainWindow(QMainWindow):
         self.topic_layout = QVBoxLayout()
         self.topic_tab.setLayout(self.topic_layout)
 
-        self.topic_tap_view = TopicTabView(topic_tab_page)  
+        #self.topic_tab_view = TopicTabView(topic_tab_page)  
+        self.topic_tab_view = TopicViewer()
 
         # topic_tab.ui를 main_tab에 추가
-        self.topic_layout.addWidget(self.topic_tap_view)
+        self.topic_layout.addWidget(self.topic_tab_view)
+
+        # 서비스 정보 탭
+        
+        self.service_tab = QWidget()
+        self.tabs.addTab(self.service_tab, "서비스")
+        self.service_layout = QVBoxLayout()
+        self.service_tab.setLayout(self.service_layout)
+
+        #self.topic_tab_view = TopicTabView(topic_tab_page)  
+        self.service_tab_view = ServiceViewer()
+
+        # topic_tab.ui를 main_tab에 추가
+        self.service_layout.addWidget(self.service_tab_view)
      
         # 네이게이션 탭 추가
         self.nav_tab = QWidget()
@@ -135,7 +151,7 @@ class MainWindow(QMainWindow):
         # SSH 연결 확인을 위한 타이머 설정 (예시: 5초마다 연결 시도)
         self.timer_1 = QTimer(self)
         self.timer_1.timeout.connect(self.check_ssh_connection)
-        self.timer_1.start(10000)  # 10초마다 체크
+        self.timer_1.start(30000)  # 30초마다 체크
 
 
     def keyboard_check_conditions(self):

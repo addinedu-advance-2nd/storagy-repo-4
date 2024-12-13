@@ -103,8 +103,8 @@
    <widget class="QLabel" name="label_7">
     <property name="geometry">
      <rect>
-      <x>140</x>
-      <y>30</y>
+      <x>130</x>
+      <y>0</y>
       <width>181</width>
       <height>41</height>
      </rect>
@@ -547,7 +547,7 @@
      </font>
     </property>
     <property name="text">
-     <string>로봇 정보</string>
+     <string>스토리지 정보</string>
     </property>
     <property name="alignment">
      <set>Qt::AlignCenter</set>
