@@ -75,7 +75,7 @@ class MainWindow(QMainWindow):
 
         # 메인 탭
         self.main_tab = QWidget()
-        self.tabs.addTab(self.main_tab, "메인")
+        self.tabs.addTab(self.main_tab, "Dashboard")
         self.main_layout = QVBoxLayout()
         self.main_tab.setLayout(self.main_layout)
 
@@ -131,6 +131,10 @@ class MainWindow(QMainWindow):
 
         # topic_tab.ui를 main_tab에 추가
         self.nav_layout.addWidget(self.nav_tap_view)
+
+        self.stylesheet_all()
+
+
             
         '''    
         # 토픽 정보 탭
@@ -152,6 +156,81 @@ class MainWindow(QMainWindow):
         self.timer_1 = QTimer(self)
         self.timer_1.timeout.connect(self.check_ssh_connection)
         self.timer_1.start(30000)  # 30초마다 체크
+
+
+
+    def stylesheet_all(self):
+        # QMainWindow 스타일 설정
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #212024;  /* 배경색: 짙은 회색 */
+                border: 50px solid #212024; /* 배경색: 짙은 회색 */
+                
+            }
+            
+        """)
+
+
+        # QFrame 스타일시트 설정
+        self.s_admin.frame.setStyleSheet("""
+            QFrame {
+                background-color: 	#2c2d30;    /* 배경색: dimgrey */
+                border-radius: 10px;          /* 테두리 모서리 둥글게: 10px */
+            }
+        """)
+        self.s_admin.battery_frame.setStyleSheet("""
+            QFrame {
+                background-color: 	#2c2d30;    /* 배경색: dimgrey */
+                border-radius: 10px;          /* 테두리 모서리 둥글게: 10px */
+            }
+        """)
+
+        self.s_admin.cmd_vel_x_frame.setStyleSheet("""
+            QFrame {
+                background-color: 	#2c2d30;    /* 배경색: dimgrey */
+                border-radius: 10px;          /* 테두리 모서리 둥글게: 10px */
+            }
+        """)
+        self.s_admin.cmd_vel_z_frame.setStyleSheet("""
+            QFrame {
+                background-color: 	#2c2d30;    /* 배경색: dimgrey */
+                border-radius: 10px;          /* 테두리 모서리 둥글게: 10px */
+            }
+        """)
+
+
+
+
+        # 글자 색상 설정
+        labels = ["label_3", "label_6", "label_7", "checkBox", "keyboard_control_button", "joystick_control_button", "label_2",
+                  "odom_2", "odom_3", "odom_4"]
+
+        for label_name in labels:
+            label = getattr(self.s_admin, label_name)  # label_name에 해당하는 속성 접근
+            label.setStyleSheet("color: white;")  # 스타일 적용
+
+
+
+        self.s_admin.safety_check_button.setStyleSheet("color: white;")
+        self.s_admin.battery_voltage_2.setStyleSheet("color: white;")
+        self.s_admin.battery_voltage.setStyleSheet("color: #32e6b7;")
+        self.s_admin.cmd_vel_x.setStyleSheet("color: #32e6b7;")
+        self.s_admin.cmd_vel_2.setStyleSheet("color: white;")
+        self.s_admin.cmd_vel_z.setStyleSheet("color: #32e6b7;")
+        self.s_admin.cmd_vel_4.setStyleSheet("color: white;")
+        self.s_admin.odom_pos_x.setStyleSheet("color: #32e6b7;")
+        self.s_admin.odom_pos_y.setStyleSheet("color: #32e6b7;")
+        self.s_admin.odom_pos_z.setStyleSheet("color: #32e6b7;")
+        self.s_admin.odom_ori_x.setStyleSheet("color: #32e6b7;")
+        self.s_admin.odom_ori_y.setStyleSheet("color: #32e6b7;")
+        self.s_admin.odom_ori_z.setStyleSheet("color: #32e6b7;")
+        self.s_admin.odom_ori_w.setStyleSheet("color: #32e6b7;")
+
+
+
+
+
+
 
 
     def keyboard_check_conditions(self):
@@ -394,10 +473,10 @@ class MainWindow(QMainWindow):
         """LED 상태에 맞게 레이블 색상과 텍스트 변경"""
         if status == "green":
             self.led_label.setText(f"<b>{message}</b>")  # 텍스트를 굵게 표시
-            self.led_label.setStyleSheet("background-color: green; color: white; font-size: 18px;")
+            self.led_label.setStyleSheet("background-color: green; color: white; font-size: 18px;border-radius: 10px")
         elif status == "red":
             self.led_label.setText(f"<b>{message}</b>")  # 텍스트를 굵게 표시
-            self.led_label.setStyleSheet("background-color: red; color: white; font-size: 18px;")
+            self.led_label.setStyleSheet("background-color: red; color: white; font-size: 18px;border-radius: 10px;")
 
 
     def get_wifi_info(self):
