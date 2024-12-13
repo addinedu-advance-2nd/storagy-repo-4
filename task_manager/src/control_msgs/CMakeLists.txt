@@ -20,6 +20,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RobotArriveState.msg"
   "msg/RobotRecevieMoving.msg"
   "msg/RobotRequestMoving.msg"
+  "msg/AlertToChat.msg"  
   )
 
 

@@ -4,13 +4,17 @@ import os
 from print import print_file  # printer 모듈 가져오기
 import rclpy
 from rclpy.node import Node
-from print_publisher import PrintPublisher
+from print_node import PrintNode
 
 app = Flask(__name__)
 CORS(app)  # 모든 도메인에서의 접근을 허용합니다.
 
 rclpy.init()
-node = PrintPublisher() #ROS 발행
+node = PrintNode() #ROS 발행
+
+######################################################
+# 테스트용 - 미사용 코드
+######################################################
 
 # 저장할 디렉토리 설정
 UPLOAD_FOLDER = './print_system/request_print'
@@ -40,7 +44,9 @@ def request_print():
         # 프린터에 파일 출력
         #job_id = print_file(user, file_path)  # 프린터 모듈 사용
         
-        node.send_callback()
+        #발행 - 스토리지 프린터기로 이동 요청
+        node.send_move_callback(user)
+
 
         # 프린트 하기
         msg = print_file(file_path)  # 프린터 모듈 사용    

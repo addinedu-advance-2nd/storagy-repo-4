@@ -33,8 +33,10 @@ class CmdVelListener(Node):
                           f"Angular: x={angular_x}, y={angular_y}, z={angular_z}")
         
         # QLabel에 업데이트
-        self.s_admin.cmd_vel.setText(formatted_text)
-        #print(formatted_text)
+        #self.s_admin.cmd_vel.setText(formatted_text)
+        self.s_admin.cmd_vel_x.setText(str(linear_x))
+        self.s_admin.cmd_vel_z.setText(str(angular_z))
+        #print(linear_x)
         
 def main(args=None):
     rclpy.init(args=args)
