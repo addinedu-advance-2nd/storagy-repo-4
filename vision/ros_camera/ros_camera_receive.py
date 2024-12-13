@@ -3,7 +3,7 @@ import socket
 import pickle
 import struct
 
-ip = '127.0.0.1'
+ip = '192.168.0.179'
 port = 50001
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
