@@ -14,28 +14,31 @@ import json
 
 """
 #좌표값
-PositionDict = {'init':[0, 0],
-                'print':[0, 1],
-                'corridor1':[0.22, 0.59],
-                'corridor2':[2.3, 0.47],
-                'corridor3':[3.5, 0.78],
-                'A1':[0.22, 0.59,0.17, 1.71],
-                'A2':[0.22, 0.59,0.16, 2.4],
-                'B1':[2.3, 0.47,2.3, 1.67],
-                'B2':[2.3, 0.47,2.3, 2.45],
-                'C1':[3.5, 0.78,4.05, 1.05],
-                'C2':[3.5, 0.78,1.05, 2]                
+PositionDict = {'init':[0.018, -0.027],
+                'print':[0.018, -0.027],
+                'corridor1':[0.018, -0.027],
+                'corridor2':[2.33, -0.01],
+                'corridor3':[3.93, -4.97],
+                'A1':[0.018, -0.027,0.28, 0.79],
+                'A2':[0.018, -0.027,0.31, 1.64],
+                'B1':[2.33, -0.01,2.45, 0.83],
+                'B2':[2.33, -0.01,2.4, 1.56],
+                'C1':[3.93, -4.97,4.54, 0.7],
+                'C2':[3.93, -4.97,4.56, 1.3],
+                '신정수':[0.018, -0.027,0.28, 0.79],
+                '신정수_B':[0.018, -0.027],
+                '김영배':[0.018, -0.027,0.31, 1.64],
+                '김영배_B':[0.018, -0.027],
+                '안태규':[2.33, -0.01,2.45, 0.83],
+                '안태규_B':[2.33, -0.01],
+                '황정민':[2.33, -0.01,2.4, 1.56],
+                '황정민_B':[2.33, -0.01],
+                '김세현':[3.93, -4.97,4.54, 0.7],
+                '김세현_B':[3.93, -4.97],
+                '이강찬':[3.93, -4.97,4.56, 1.3] ,     
+                '이강찬_B':[3.93, -4.97]                             
                 }
-UserKeyDict={
-            "신정수":"A1",
-            "김영배":"A2",
-            "안태규":"B1",
-            "황정민":"B2",
-            "김세현":"C1",
-            "이강찬":"C2",
-            "A1":"A1"
 
-}
 
 
 class TaskManager(Node):
@@ -48,7 +51,8 @@ class TaskManager(Node):
         self.isArrived = False #스토리지 이동 완료 
         self.result_msg = None
         self.isPrintComplete = False #프린트완료 여부
-     
+        
+        self.requset_queue = []
 
         # 구독 - 스토리지 이동 요청 받기 (채팅봇, 프린터기 -> 매니저)
         self.receive_move_subscriber = self.create_subscription(RobotRecevieMoving, '/moving_receive', self.receive_request_callback, 10)     
@@ -74,7 +78,15 @@ class TaskManager(Node):
         print_file_path = msg.file_path
         self.isAvailable = False #    
         self.get_logger().info('Request System: "%s", User Name: "%s"' % (msg.request_system, msg.user_name))  
-      
+       #self.excute_moving(self, msg)
+
+    
+    #def excute_moving(self, msg):     
+        # print_file_path = msg.file_path
+        # self.isAvailable = False #    
+        # #self.get_logger().info('Request System: "%s", User Name: "%s"' % (msg.request_system, msg.user_name))  
+        # self.get_logger().info(f"Request Detail: '{msg}'")
+
         ###########################################################################
          # 스토리지 이동 요청지 - 프린터 일 경우 
         ###########################################################################
@@ -87,13 +99,13 @@ class TaskManager(Node):
             send_msg.user_name = msg.user_name # 메시지 내용     
             send_msg.positions = array('f', PositionDict['print']) # 메시지 내용            
             self.request_move_publisher.publish(send_msg)           
-            self.get_logger().info('Publising : "%s", User Name: "%s"' % (send_msg.request_system, send_msg.user_name))
-        
- 
+            self.get_logger().info('Publising : "%s", User Name: "%s"' % (send_msg.request_system, send_msg.user_name))     
+            self.get_logger().info(f"Publishing Detail: '{send_msg}'")
+
             # ROS 구독 - 2.스토리지 도착 완료 
             self.isArrived = False #스토리지 이동 완료 
             while not self.isArrived:              
-                rp.spin_once(self)
+                rp.spin(self)
             
             # ROS 발행- 3.프린터시스템에 프린터 요청            
             send_msg = RobotRecevieMoving()
@@ -103,49 +115,57 @@ class TaskManager(Node):
            
             self.request_print_publisher.publish(send_msg)
             self.get_logger().info('Publishing: "%s"' % send_msg.file_path)         
-
+            self.get_logger().info(f"Publishing Detail: '{send_msg}'")
            
             # ROS 구독 - 4.프린터 시스템 인쇄 완료 
             self.isPrintComplete = False 
             self.result_msg = None
             while not self.isPrintComplete:    
-                rp.spin_once(self)
+                rp.spin(self)
            
             if 'comp' in self.result_msg:
                 # ROS 발행 - 5.스토리지 사용자에게 이동 요청
                 send_msg = RobotRequestMoving()
                 send_msg.request_system = msg.request_system  # 메시지 내용
-                send_msg.user_name = msg.user_name  # 메시지 내용
-                send_msg.positions = array('f',PositionDict[UserKeyDict[msg.user_name]])# 메시지 내용
+                send_msg.user_name = msg.user_name  # 메시지 내용              
+                send_msg.positions = array('f',PositionDict[msg.user_name])# 메시지 내용
                 self.request_move_publisher.publish(send_msg)        
                 self.get_logger().info('Publising : "%s", User Name: "%s"' % (send_msg.request_system, send_msg.user_name))
-
+                self.get_logger().info(f"Publishing Detail: '{send_msg}'")    
                 # ROS 구독 - 6.스토리지 사용자에게  도착 완료 
                 self.isArrived = False #스토리지 이동 완료 
                 while not self.isArrived:                  
-                    rp.spin_once(self)
+                    rp.spin(self)
+
+
+       
 
         ###########################################################################
-        # 스토리지 이동 요청지 - 프린터 외 챗봇
+        # 스토리지 이동 요청지 - (프린터 외) 챗봇
+        # 스토리지 이동 목적지 - 사용자 자리 OR 홈 OR 복도
         ###########################################################################
         else:
             # ROS 발행 - 스토리지 이동 요청
             send_msg = RobotRequestMoving()
             send_msg.request_system = msg.request_system  # 메시지 내용
-            send_msg.user_name = msg.user_name  # 메시지 내용
-            send_msg.positions = array('f',PositionDict[UserKeyDict[msg.user_name]])# 메시지 내용
+            send_msg.user_name = msg.user_name  # 메시지 내용   
+            send_msg.positions = array('f',PositionDict[msg.user_name])# 메시지 내용 - 이동    
+
             self.request_move_publisher.publish(send_msg)        
             self.get_logger().info('Publising : "%s", User Name: "%s"' % (send_msg.request_system, send_msg.user_name))
-
+            self.get_logger().info(f"Publishing Detail: '{send_msg}'")    
+            
+            
             # ROS 구독 - 스토리지 도착 완료 
             self.isArrived = False #스토리지 이동 완료 
             while not self.isArrived:
-                rp.spin_once(self)
+                rp.spin(self)
 
 
         #이동 완료 후 상태값들 초기화
         self.init_vars()
- 
+    
+
         
     def arrived_callback(self, msg):
         # 구독한 메시지를 출력     
