@@ -35,6 +35,7 @@ from manual_control import ManualControl
 from depth_scan_sub import DepthScanSubscriber
 from topic_viewer import TopicViewer
 from service_viewer import ServiceViewer
+from map_topic_listener import MapTopicListener
 
 
 #from gui.super_admin.super_topic import TopicSubscriber
@@ -75,7 +76,7 @@ class MainWindow(QMainWindow):
 
         # 메인 탭
         self.main_tab = QWidget()
-        self.tabs.addTab(self.main_tab, "메인")
+        self.tabs.addTab(self.main_tab, "Dashboard")
         self.main_layout = QVBoxLayout()
         self.main_tab.setLayout(self.main_layout)
 
@@ -131,6 +132,10 @@ class MainWindow(QMainWindow):
 
         # topic_tab.ui를 main_tab에 추가
         self.nav_layout.addWidget(self.nav_tap_view)
+
+        self.stylesheet_all()
+
+
             
         '''    
         # 토픽 정보 탭
@@ -152,6 +157,88 @@ class MainWindow(QMainWindow):
         self.timer_1 = QTimer(self)
         self.timer_1.timeout.connect(self.check_ssh_connection)
         self.timer_1.start(30000)  # 30초마다 체크
+
+
+
+    def stylesheet_all(self):
+        # QMainWindow 스타일 설정
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #212024;  /* 배경색: 짙은 회색 */
+                border: 50px solid #212024; /* 배경색: 짙은 회색 */
+                
+            }
+            
+        """)
+
+
+        # QFrame 스타일시트 설정
+        frame_style = """
+            QFrame {
+                background-color: #2c2d30;    /* 배경색: dimgrey */
+                border-radius: 10px;          /* 테두리 모서리 둥글게: 10px */
+            }
+        """
+
+        self.s_admin.frame.setStyleSheet(frame_style)
+        self.s_admin.battery_frame.setStyleSheet(frame_style)
+        self.s_admin.cmd_vel_x_frame.setStyleSheet(frame_style)
+        self.s_admin.cmd_vel_z_frame.setStyleSheet(frame_style)
+        self.s_admin.odom_frame.setStyleSheet(frame_style)
+        self.s_admin.frame_3.setStyleSheet(frame_style)
+        self.s_admin.motor_frame.setStyleSheet(frame_style)
+        self.s_admin.ssid_frame.setStyleSheet(frame_style)
+        self.s_admin.ip_frame.setStyleSheet(frame_style)
+        self.s_admin.camera_frame.setStyleSheet(frame_style)
+        self.s_admin.camera_frame_2.setStyleSheet(frame_style)
+        self.s_admin.camera_frame_3.setStyleSheet(frame_style)
+
+        
+        
+
+
+
+
+
+        # 글자 색상 설정
+        labels = ["label_3", "label_6", "label_7", "checkBox", "keyboard_control_button", "joystick_control_button", "label_2",
+                  "odom_2", "odom_3", "odom_4", "motor_state_2", "motor_r", "motor_l", "ssid", "ip" , "label_2", "label_8", "rgb_cam_view",
+                  "label_11", "dep_cam_view", "label_12", "lidar_view"
+                  ]
+
+        for label_name in labels:
+            label = getattr(self.s_admin, label_name)  # label_name에 해당하는 속성 접근
+            label.setStyleSheet("color: white;")  # 스타일 적용
+
+
+
+        self.s_admin.safety_check_button.setStyleSheet("color: white;")
+        self.s_admin.battery_voltage_2.setStyleSheet("color: white;")
+        self.s_admin.cmd_vel_2.setStyleSheet("color: white;")
+        self.s_admin.cmd_vel_4.setStyleSheet("color: white;")
+
+        labels_32 = ["odom_pos_x", "odom_pos_y", "odom_pos_z", "odom_ori_x", "odom_ori_y", "odom_ori_z", "odom_ori_w", 
+                     "motor_r_A", "motor_r_Nm", "motor_l_A", "motor_l_Nm", "battery_voltage", "cmd_vel_x", "cmd_vel_z"
+            ]
+
+        for label_name_32 in labels_32:
+            label = getattr(self.s_admin, label_name_32)  # label_name에 해당하는 속성 접근
+            label.setStyleSheet("color: #32e6b7;")  # 스타일 적용
+
+        '''
+        self.s_admin.odom_pos_x.setStyleSheet("color: #32e6b7;")
+        self.s_admin.odom_pos_y.setStyleSheet("color: #32e6b7;")
+        self.s_admin.odom_pos_z.setStyleSheet("color: #32e6b7;")
+        self.s_admin.odom_ori_x.setStyleSheet("color: #32e6b7;")
+        self.s_admin.odom_ori_y.setStyleSheet("color: #32e6b7;")
+        self.s_admin.odom_ori_z.setStyleSheet("color: #32e6b7;")
+        self.s_admin.odom_ori_w.setStyleSheet("color: #32e6b7;")
+        '''
+
+
+
+
+
 
 
     def keyboard_check_conditions(self):
@@ -394,10 +481,10 @@ class MainWindow(QMainWindow):
         """LED 상태에 맞게 레이블 색상과 텍스트 변경"""
         if status == "green":
             self.led_label.setText(f"<b>{message}</b>")  # 텍스트를 굵게 표시
-            self.led_label.setStyleSheet("background-color: green; color: white; font-size: 18px;")
+            self.led_label.setStyleSheet("background-color: green; color: white; font-size: 18px;border-radius: 10px")
         elif status == "red":
             self.led_label.setText(f"<b>{message}</b>")  # 텍스트를 굵게 표시
-            self.led_label.setStyleSheet("background-color: red; color: white; font-size: 18px;")
+            self.led_label.setStyleSheet("background-color: red; color: white; font-size: 18px;border-radius: 10px;")
 
 
     def get_wifi_info(self):
@@ -497,6 +584,10 @@ def main():
 
     odom_thread = ROS2Thread(OdomListener, s_admin)
     odom_thread.start()
+
+    #map_thread = ROS2Thread(MapTopicListener, s_admin)
+    #map_thread.start()
+    #map_thread = MapTopicListener(s_admin)
 
     '''
     # 타이머로 100ms마다 ROS2 스핀 갱신

@@ -14,44 +14,56 @@ class MapSubscriberNode(QObject):
 
     def __init__(self):
         super().__init__()
+        self.ros_thread = QThread()
+        self.moveToThread(self.ros_thread)
+
+        # ROS 노드 초기화
+        self.ros_node = None
+        self.ros_thread.started.connect(self.init_ros)
+        self.ros_thread.start()
+
+    def init_ros(self):
         rclpy.init()
         self.ros_node = Node('map_subscriber_node')
         self.subscription = self.ros_node.create_subscription(
             OccupancyGrid,
             '/map',
             self.map_callback,
-            10
+            1
         )
-        self.ros_thread = QThread()
-        self.moveToThread(self.ros_thread)
-        self.ros_thread.started.connect(self.spin_ros_node)
-        self.ros_thread.start()
+        while rclpy.ok():
+            rclpy.spin_once(self.ros_node, timeout_sec=0.1)
 
     def map_callback(self, msg):
-        self.map_received.emit(msg)  # PyQt 시그널로 메시지 전달
-
-    def spin_ros_node(self):
-        try:
-            rclpy.spin(self.ros_node)  # ROS 2 이벤트 루프 실행
-        except Exception as e:
-            print(f"Error in ROS spin: {e}")
+        self.map_received.emit(msg)  # PyQt 시그널로 전달
 
     def stop(self):
-        self.ros_node.destroy_node()
+        if self.ros_node:
+            self.ros_node.destroy_node()
         rclpy.shutdown()
         self.ros_thread.quit()
         self.ros_thread.wait()
 
 
-# PyQt5 MainWindow
-class MainWindow(QWidget):
-    def __init__(self):
+class MapTopicListener(QWidget):
+    def __init__(self, s_admin):
         super().__init__()
+        self.s_admin = s_admin
         self.init_ui()
+
+        # ROS Node 초기화
+        self.ros_node = MapSubscriberNode()
+        self.ros_node.map_received.connect(self.handle_map_data)
+
+        self.current_map_data = None
+
+        # s_admin.map_widget에 UI 추가
+        if hasattr(self.s_admin, 'map_widget'):
+            self.s_admin.map_widget.setLayout(QVBoxLayout())
+            self.s_admin.map_widget.layout().addWidget(self)
 
     def init_ui(self):
         self.setWindowTitle("ROS 2 Map Subscriber with Heatmap")
-        self.resize(800, 600)
 
         self.label = QLabel("Waiting for map data...", self)
         self.show_heatmap_btn = QPushButton("Show Heatmap", self)
@@ -62,15 +74,7 @@ class MainWindow(QWidget):
         layout.addWidget(self.show_heatmap_btn)
         self.setLayout(layout)
 
-        # ROS Node 초기화
-        self.ros_node = MapSubscriberNode()
-        self.ros_node.map_received.connect(self.handle_map_data)
-
-        # 버튼 이벤트
         self.show_heatmap_btn.clicked.connect(self.show_heatmap)
-        
-
-        self.current_map_data = None
 
     def handle_map_data(self, msg):
         self.label.setText("Map data received!")
@@ -84,11 +88,9 @@ class MainWindow(QWidget):
     def visualize_map(self, msg):
         width = msg.info.width
         height = msg.info.height
-
-        # OccupancyGrid 데이터를 2D 배열로 변환
         map_data = np.array(msg.data).reshape((height, width))
 
-        # 히트맵 시각화
+        # 히트맵 표시
         plt.figure(figsize=(10, 8))
         plt.imshow(map_data, cmap='gray', origin='lower')
         plt.colorbar(label='Cell Value')
@@ -105,6 +107,18 @@ class MainWindow(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    main_window = MainWindow()
-    main_window.show()
+
+    # s_admin 객체 생성
+    s_admin = QWidget()
+    s_admin.map_widget = QWidget()
+
+    s_admin_layout = QVBoxLayout(s_admin)
+    s_admin_layout.addWidget(s_admin.map_widget)
+
+    map_listener = MapTopicListener(s_admin)
+    s_admin.show()
+
     sys.exit(app.exec_())
+
+
+

@@ -21,9 +21,9 @@ class TopicTabView(QMainWindow):
 
         # QComboBox 생성
         #self.combo_box = QComboBox()
-        self.topic_tab_page.topic_combo_box.addItems(["", "배터리 잔량", "항목2", "항목3"])
-        self.topic_tab_page.topic_combo_box.currentIndexChanged.connect(self.update_label)
-        self.layout.addWidget(self.topic_tab_page)
+        #self.topic_tab_page.topic_combo_box.addItems(["", "배터리 잔량", "항목2", "항목3"])
+        #self.topic_tab_page.topic_combo_box.currentIndexChanged.connect(self.update_label)
+        #self.layout.addWidget(self.topic_tab_page)
 
     def update_label(self):
         # QComboBox의 현재 선택된 항목 가져오기

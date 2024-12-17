@@ -41,7 +41,11 @@ class MotorStateListener(Node):
         )
 
         # QLabel에 텍스트 설정
-        self.s_admin.motor_state.setText(formatted_text)
+        #self.s_admin.motor_state.setText(formatted_text)
+        self.s_admin.motor_r_A.setText(f"{motor_right_current} A")
+        self.s_admin.motor_r_Nm.setText(f"{motor_right_torque} Nm")
+        self.s_admin.motor_l_A.setText(f"{motor_left_current} A")
+        self.s_admin.motor_l_Nm.setText(f"{motor_left_torque} Nm")
 
 
 def main(args=None):

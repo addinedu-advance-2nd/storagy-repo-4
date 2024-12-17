@@ -1,8 +1,7 @@
 import rclpy as rp
-from rclpy.action import ActionClient
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
-from control_msgs.msg import RobotRecevieMoving, RobotRequestMoving, RobotArriveState
+from control_msgs.msg import RobotRecevieMoving, RobotRequestMoving, RobotArriveState, AlertToChat
 from std_msgs.msg import Bool, String
 from array import array
 from datetime import datetime
@@ -87,15 +86,13 @@ class TaskManager(Node):
             send_msg.request_system = msg.request_system  # 메시지 내용              
             send_msg.user_name = msg.user_name # 메시지 내용     
             send_msg.positions = array('f', PositionDict['print']) # 메시지 내용            
-            self.request_move_publisher.publish(RobotRequestMoving)                 
-            self.get_logger().info('Publising : "%s", User Name: "%s", Positions: %s' % (send_msg.request_system, send_msg.user_name, str(send_msg.positions)))
+            self.request_move_publisher.publish(send_msg)           
+            self.get_logger().info('Publising : "%s", User Name: "%s"' % (send_msg.request_system, send_msg.user_name))
         
-            
-
+ 
             # ROS 구독 - 2.스토리지 도착 완료 
             self.isArrived = False #스토리지 이동 완료 
-            while not self.isArrived:
-                print(str(self.result_msg.positions))
+            while not self.isArrived:              
                 rp.spin_once(self)
             
             # ROS 발행- 3.프린터시스템에 프린터 요청            
@@ -120,13 +117,12 @@ class TaskManager(Node):
                 send_msg.request_system = msg.request_system  # 메시지 내용
                 send_msg.user_name = msg.user_name  # 메시지 내용
                 send_msg.positions = array('f',PositionDict[UserKeyDict[msg.user_name]])# 메시지 내용
-                self.request_move_publisher.publish(RobotRequestMoving)        
-                self.get_logger().info('Publising : "%s", User Name: "%s", Positions: %s' % (send_msg.request_system, send_msg.user_name, str(send_msg.positions)))
+                self.request_move_publisher.publish(send_msg)        
+                self.get_logger().info('Publising : "%s", User Name: "%s"' % (send_msg.request_system, send_msg.user_name))
 
                 # ROS 구독 - 6.스토리지 사용자에게  도착 완료 
                 self.isArrived = False #스토리지 이동 완료 
-                while not self.isArrived:
-                    print(str(self.result_msg.positions))
+                while not self.isArrived:                  
                     rp.spin_once(self)
 
         ###########################################################################
@@ -138,8 +134,8 @@ class TaskManager(Node):
             send_msg.request_system = msg.request_system  # 메시지 내용
             send_msg.user_name = msg.user_name  # 메시지 내용
             send_msg.positions = array('f',PositionDict[UserKeyDict[msg.user_name]])# 메시지 내용
-            self.request_move_publisher.publish(RobotRequestMoving)        
-            self.get_logger().info('Publising : "%s", User Name: "%s", Positions: %s' % (send_msg.request_system, send_msg.user_name, str(send_msg.positions)))
+            self.request_move_publisher.publish(send_msg)        
+            self.get_logger().info('Publising : "%s", User Name: "%s"' % (send_msg.request_system, send_msg.user_name))
 
             # ROS 구독 - 스토리지 도착 완료 
             self.isArrived = False #스토리지 이동 완료 
@@ -155,14 +151,14 @@ class TaskManager(Node):
         # 구독한 메시지를 출력     
         self.isArrived = True #스토리지 이동 완료 
         self.result_msg = msg
-        self.get_logger().info('I heard arrived_callback : "%s" Positions: %s' %( msg.user_name, str(msg.positions)))    
+        self.get_logger().info('I heard arrived_callback : "%s" ' %( msg.user_name))    
     
         
     def print_complete_callback(self, msg):
         # 프린터 완료 
         self.isPrintComplete = True #스토리지 이동 완료 
         self.result_msg = msg
-        self.get_logger().info('I heard print_complete_callback : "%s" Positions: %s' %( msg.data))    
+        self.get_logger().info('I heard print_complete_callback : "%s" ' %( msg.data))    
 
     def init_vars(self):              
         self.isAvailable = True #스토리지 사용 가능 여부 ( 만약 프린터 시스템에서 사용중일 경우, True 처리 시키기)

@@ -24,16 +24,16 @@ class OdomListener(Node):
 
         # 소수점 2자리로 정리
         formatted_position = {
-            "x": round(position.x, 2),
-            "y": round(position.y, 2),
-            "z": round(position.z, 2)
+            "x": round(position.x, 1),
+            "y": round(position.y, 1),
+            "z": round(position.z, 1)
         }
 
         formatted_orientation = {
-            "x": round(orientation.x, 2),
-            "y": round(orientation.y, 2),
-            "z": round(orientation.z, 2),
-            "w": round(orientation.w, 2)
+            "x": round(orientation.x, 1),
+            "y": round(orientation.y, 1),
+            "z": round(orientation.z, 1),
+            "w": round(orientation.w, 1)
         }
 
         # 결과 출력
@@ -44,7 +44,14 @@ class OdomListener(Node):
         )
 
         # QLabel에 텍스트 설정
-        self.s_admin.odom.setText(formatted_output)
+        #self.s_admin.odom.setText(formatted_output)
+        self.s_admin.odom_pos_x.setText(f"x:{formatted_position['x']}")
+        self.s_admin.odom_pos_y.setText(f"y:{formatted_position['y']}")
+        self.s_admin.odom_pos_z.setText(f"z:{formatted_position['z']}")
+        self.s_admin.odom_ori_x.setText(f"x:{formatted_orientation['x']}")
+        self.s_admin.odom_ori_y.setText(f"x:{formatted_orientation['y']}")
+        self.s_admin.odom_ori_z.setText(f"z:{formatted_orientation['z']}")
+        self.s_admin.odom_ori_w.setText(f"w:{formatted_orientation['w']}")
 
       
 def main(args=None):
