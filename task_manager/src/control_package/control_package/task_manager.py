@@ -7,6 +7,7 @@ from array import array
 from datetime import datetime
 import time
 import json
+#python -m pip install "pymongo[srv]"==3.6
 
 """
 기능1) 디스코봇에서 간식,사무용품 호출
@@ -61,16 +62,16 @@ class TaskManager(Node):
         # 발행 - 스토리지 이동 요청 하기 ( 매니저 -> 스토리지)
         self.request_move_publisher = self.create_publisher(RobotRequestMoving, '/moving_request', 10)     
 
-        # 구독 - 스토리지 목적지 도착 완료 받기 (스토리지 -> 매니저)
-        self.receive_arrived_subscriber = self.create_subscription(RobotArriveState, '/arrived_receive', self.arrived_callback, 10)
-        self.receive_arrived_subscriber
+        # # 구독 - 스토리지 목적지 도착 완료 받기 (스토리지 -> 매니저)
+        # self.receive_arrived_subscriber = self.create_subscription(RobotArriveState, '/arrived_receive', self.arrived_callback, 10)
+        # self.receive_arrived_subscriber
 
         # 발행 - 프린터 요청( 스토리지 프린터기 앞 도착 완료) ( 매니저 -> 프린터시스템)
         self.request_print_publisher = self.create_publisher(RobotRecevieMoving, '/print_request', 10)    
 
-        # 구독 - 프런터 완료 알림 (프린터기 -> 매니저)
-        self.complete_print_subscriber = self.create_subscription(String, '/print_complete', self.print_complete_callback, 10)
-        self.complete_print_subscriber
+        # # 구독 - 프런터 완료 알림 (프린터기 -> 매니저)
+        # self.complete_print_subscriber = self.create_subscription(String, '/print_complete', self.print_complete_callback, 10)
+        # self.complete_print_subscriber
 
 
     #스토리지 이동 요청이 들어왔을 경우
@@ -104,9 +105,12 @@ class TaskManager(Node):
 
             # ROS 구독 - 2.스토리지 도착 완료 
             self.isArrived = False #스토리지 이동 완료 
-            while not self.isArrived:              
-                rp.spin(self)
-            
+            self.get_logger().info(f"Publishing isArrived: '{send_msg}'")
+            while not self.isArrived:     
+                self.get_logger().info(f"while")        
+                # rp.spin_once(self)
+
+            self.get_logger().info(f"while 탈출")
             # ROS 발행- 3.프린터시스템에 프린터 요청            
             send_msg = RobotRecevieMoving()
             send_msg.request_system = msg.request_system   # 메시지 내용  
@@ -120,8 +124,9 @@ class TaskManager(Node):
             # ROS 구독 - 4.프린터 시스템 인쇄 완료 
             self.isPrintComplete = False 
             self.result_msg = None
-            while not self.isPrintComplete:    
-                rp.spin(self)
+            while not self.isPrintComplete:  
+                pass  
+                # rp.spin_once(self)
            
             if 'comp' in self.result_msg:
                 # ROS 발행 - 5.스토리지 사용자에게 이동 요청
@@ -135,7 +140,8 @@ class TaskManager(Node):
                 # ROS 구독 - 6.스토리지 사용자에게  도착 완료 
                 self.isArrived = False #스토리지 이동 완료 
                 while not self.isArrived:                  
-                    rp.spin(self)
+                    # rp.spin_once(self)
+                    pass
 
 
        
@@ -159,7 +165,8 @@ class TaskManager(Node):
             # ROS 구독 - 스토리지 도착 완료 
             self.isArrived = False #스토리지 이동 완료 
             while not self.isArrived:
-                rp.spin(self)
+                # rp.spin_once(self)
+                pass
 
 
         #이동 완료 후 상태값들 초기화
@@ -167,31 +174,64 @@ class TaskManager(Node):
     
 
         
-    def arrived_callback(self, msg):
-        # 구독한 메시지를 출력     
-        self.isArrived = True #스토리지 이동 완료 
-        self.result_msg = msg
-        self.get_logger().info('I heard arrived_callback : "%s" ' %( msg.user_name))    
-    
+    # def arrived_callback(self, msg):
+    #     self.get_logger().info('I heard arrived_callback : "%s" ' %( msg.user_name))     
+    #     # 구독한 메시지를 출력     
+    #     self.isArrived = True #스토리지 이동 완료 
+    #     self.result_msg = msg
+       
         
-    def print_complete_callback(self, msg):
-        # 프린터 완료 
-        self.isPrintComplete = True #스토리지 이동 완료 
-        self.result_msg = msg
-        self.get_logger().info('I heard print_complete_callback : "%s" ' %( msg.data))    
+    # def print_complete_callback(self, msg):
+    #     # 프린터 완료 
+    #     self.isPrintComplete = True #스토리지 이동 완료 
+    #     self.result_msg = msg
+    #     self.get_logger().info('I heard print_complete_callback : "%s" ' %( msg.data))    
 
     def init_vars(self):              
         self.isAvailable = True #스토리지 사용 가능 여부 ( 만약 프린터 시스템에서 사용중일 경우, True 처리 시키기)
         self.isArrived = False #스토리지 이동 완료 
         self.result_msg = None
         self.isPrintComplete = False #프린트완료 여부
+
+class ArriveSubscriber(Node):
+    def __init__(self, taskmanager):
+        super().__init__('arrive_subscriber_node')
+        # 구독 - 스토리지 목적지 도착 완료 받기 (스토리지 -> 매니저)
+        self.receive_arrived_subscriber = self.create_subscription(RobotArriveState, '/arrived_receive', self.arrived_callback, 10)
+        self.receive_arrived_subscriber
+
+        self.task_manager = taskmanager
+    
+    def arrived_callback(self, msg):
+        self.get_logger().info('I heard arrived_callback : "%s" ' %( msg.user_name))     
+        # 구독한 메시지를 출력     
+        self.task_manager.isArrived = True #스토리지 이동 완료 
+        self.task_manager.result_msg = msg
+
+class PrinterSubscriber(Node):
+    def __init__(self, taskmanager):
+        super().__init__('printer_subscriber_node')
+        # 구독 - 스토리지 목적지 도착 완료 받기 (스토리지 -> 매니저)
+        self.complete_print_subscriber = self.create_subscription(String, '/print_complete', self.print_complete_callback, 10)
+        self.complete_print_subscriber
+
+        self.task_manager = taskmanager
+    
+    def print_complete_callback(self, msg):
+        # 프린터 완료 
+        self.task_manager.isPrintComplete = True #스토리지 이동 완료 
+        self.task_manager.result_msg = msg
+        self.get_logger().info('I heard print_complete_callback : "%s" ' %( msg.data))    
+       
      
         
 def main(args=None):
     rp.init(args=args)
     task_manager = TaskManager()
+    arrive_subscriber = ArriveSubscriber(task_manager)
     executor = MultiThreadedExecutor()
     executor.add_node(task_manager)
+    executor.add_node(arrive_subscriber)
   
     try:
         executor.spin()
@@ -199,6 +239,7 @@ def main(args=None):
     finally:
         executor.shutdown()
         task_manager.destroy_node()
+        arrive_subscriber.destroy_node()
        
         rp.shutdown()     
 
