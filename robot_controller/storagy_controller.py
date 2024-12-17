@@ -218,34 +218,36 @@ class RobotController(Node):
 ##################### 직접 조작 코드 ########################
 
     def manual_move(self, node_list):
-        # if not node_list:
-        #     return
-        # for node in node_list:
-        #     self.set_goal(node)
-        #     print('goal:', self.goal_x, self.goal_y)
+        if not node_list:
+            return
+        for node in node_list:
+            self.set_goal(node)
+            print('goal:', self.goal_x, self.goal_y)
 
-        #     distnace_error = self.remain_distance()
-        #     print(distnace_error)
+            pose, angle = self.estimate_pose_with_aruco_marker('printer')
 
-        #     while distnace_error > 0.3:
-        #         distnace_error = self.remain_distance()
-        #         angle_error = self.distance_angle_diff()
-        #         if angle_error > 0.3:
-        #             self.PID_move(distnace_error, angle_error, angle_only=True)
-        #         else:
-        #             self.PID_move(distnace_error, angle_error, angle_only=False)
+            distnace_error = self.remain_distance(self.goal_x, self.goal_y, pose[0], pose[1])
+            print(distnace_error)
+
+            while distnace_error > 0.3:
+                distnace_error = self.remain_distance(self.goal_x, self.goal_y, pose[0], pose[1])
+                angle_error = self.distance_angle_diff(self.goal_x, self.goal_y, pose[0], pose[1], angle)
+                if angle_error > 0.3:
+                    self.PID_move(distnace_error, angle_error, angle_only=True)
+                else:
+                    self.PID_move(distnace_error, angle_error, angle_only=False)
                 
-        #         print('distance error: ', distnace_error)
-        #         print('angle error: ', angle_error)
+                print('distance error: ', distnace_error)
+                print('angle error: ', angle_error)
 
-        #         time.sleep(0.2)
-        for i in range(40):
-            twist = Twist()
-            twist.linear.x = 0.3
-            twist.angular.z = 0.0
-            self.cmd_vel_publisher.publish(twist)
-            print('cmd vel published')
-            time.sleep(0.1)
+                time.sleep(0.2)
+        # for i in range(40):
+        #     twist = Twist()
+        #     twist.linear.x = 0.3
+        #     twist.angular.z = 0.0
+        #     self.cmd_vel_publisher.publish(twist)
+        #     print('cmd vel published')
+        #     time.sleep(0.1)
 
     
     def set_goal(self, node):
@@ -253,13 +255,13 @@ class RobotController(Node):
         self.goal_y = node[1]
         # self.goal_angle = node[2]
     
-    def remain_distance(self):
-        return math.sqrt((self.goal_x-self.position['x'])**2 + (self.goal_y-self.position['y'])**2)
+    def remain_distance(goal_x, goal_y, position_x, position_y):
+        return math.sqrt((goal_x-position_x)**2 + (goal_y-position_y)**2)
     
-    def distance_angle_diff(self):
-        dx = self.goal_x - self.position['x']
-        dy = self.goal_y - self.position['y']
-        angle_error = self.normalize_angle(math.atan2(dy, dx) - self.position['theta'])
+    def distance_angle_diff(self, goal_x, goal_y, position_x, position_y, position_theta):
+        dx = goal_x - position_x
+        dy = goal_y - position_y
+        angle_error = self.normalize_angle(math.atan2(dy, dx) - position_theta)
         return angle_error
 
     def normalize_angle(self, angle):
@@ -269,29 +271,28 @@ class RobotController(Node):
             angle += 2 * math.pi
         return angle
 
-    def PID_move(self, distnace_error, angle_error,  angle_only=False):
-        pose = self.estimate_pose_with_aruco_marker()
-        if pose is None:
-            pose = self.position # 네비게이션 amcl pose
-
+    def PID_move(self, distance_error, angle_error,  angle_only=False):
         twist = Twist()
         angular_speed = self.pid_angular.process(angle_error)
         twist.angular.z = angular_speed
         twist.linear.x = 0.
         if angle_only == False:
-            linear_speed = self.pid_linear.process(distnace_error)
+            linear_speed = self.pid_linear.process(distance_error)
             twist.linear.x = linear_speed
         
         self.cmd_vel_publisher.publish(twist) 
     
-    def estimate_pose_with_aruco_marker(self):
-        detected_position = None
-        # detected_position = self.detect_aruco_marker()
-        # if detected_position is not None:
-        #     if amcl과 거리가 크면 or 각도 차이가 크면:
-        #         self.publish_initial_pose(x, y, theta)
+    # def estimate_pose_with_aruco_marker(self, aruco_name):
+    #     detected_position = None
+    #     tvec, rvec = self.detect_aruco_marker()
+    #     current_pose = aruco_pose[aruco_name] + tvec
+    #     current_angle = aruco_angle[aruco_name] + rvec
+        
+    #     # if detected_position is not None:
+    #     #     if amcl과 거리가 크면 or 각도 차이가 크면:
+    #     #         self.publish_initial_pose(x, y, theta)
 
-        return detected_position
+    #     return current_pose, current_angle
     
     # def rotate_to_goal(self):                 # 이거 이제 안씀
     #     dx = self.goal_x - self.position['x']
