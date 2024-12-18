@@ -9,6 +9,7 @@ import os
 import paramiko
 import re
 import pygame  # 조이스틱 입력 라이브러리
+import time
 
 import subprocess
 from PyQt5 import QtWidgets, uic, QtGui, QtCore
@@ -36,18 +37,22 @@ from depth_scan_sub import DepthScanSubscriber
 from topic_viewer import TopicViewer
 from service_viewer import ServiceViewer
 from map_topic_listener import MapTopicListener
+from tf_listener import TfListener
 
 
 #from gui.super_admin.super_topic import TopicSubscriber
 
-host = "192.168.0.179"  # 접속할 SSH 서버의 IP 주소나 도메인
+# Domain ID를 10으로 설정
+os.environ['ROS_DOMAIN_ID'] = '50'
+
+host = "192.168.0.33"  # 접속할 SSH 서버의 IP 주소나 도메인
 username = "storagy"  # SSH 접속에 사용할 사용자 이름
 password = "123412"   # SSH 접속에 사용할 비밀번호
 
 # ROS_DOMAIN_ID 환경 변수 읽기
-ros_domain_id = os.getenv("ROS_DOMAIN_ID", "Default Domain ID Not Set")
+#ros_domain_id = os.getenv("ROS_DOMAIN_ID", "Default Domain ID Not Set")
 
-print(f"ROS Domain ID: {ros_domain_id}")
+#print(f"ROS Domain ID: {ros_domain_id}")
 
 
 
@@ -146,17 +151,12 @@ class MainWindow(QMainWindow):
             self.service_layout = QVBoxLayout()
             self.service_tab.setLayout(self.service_layout)
         '''
-
-
-        # 타이머 설정 (주기적으로 갱신)
-        self.timer = QTimer()
-
-        self.timer.start(3000)  # 1초마다 실행
-
+        #ssh 연결 확인 함수 호출
+        #QTimer.singleShot(100, self.check_ssh_connection)  # 10초 후 세 번째 함수 호출
         # SSH 연결 확인을 위한 타이머 설정 (예시: 5초마다 연결 시도)
-        self.timer_1 = QTimer(self)
-        self.timer_1.timeout.connect(self.check_ssh_connection)
-        self.timer_1.start(30000)  # 30초마다 체크
+        #self.timer_1 = QTimer(self)
+        #self.timer_1.timeout.connect(self.check_ssh_connection)
+        #self.timer_1.start(3000)  # 3초마다 체크
 
 
 
@@ -196,6 +196,7 @@ class MainWindow(QMainWindow):
         self.s_admin.camera_frame.setStyleSheet(frame_style)
         self.s_admin.camera_frame_2.setStyleSheet(frame_style)
         self.s_admin.camera_frame_3.setStyleSheet(frame_style)
+        self.s_admin.tf_frame.setStyleSheet(frame_style)
 
         
         
@@ -207,7 +208,7 @@ class MainWindow(QMainWindow):
         # 글자 색상 설정
         labels = ["label_3", "label_6", "label_7", "checkBox", "keyboard_control_button", "joystick_control_button", "label_2",
                   "odom_2", "odom_3", "odom_4", "motor_state_2", "motor_r", "motor_l", "ssid", "ip" , "label_2", "label_8", "rgb_cam_view",
-                  "label_11", "dep_cam_view", "label_12", "lidar_view"
+                  "label_11", "dep_cam_view", "label_12", "lidar_view", "map", "map_1", "map_2"
                   ]
 
         for label_name in labels:
@@ -222,7 +223,8 @@ class MainWindow(QMainWindow):
         self.s_admin.cmd_vel_4.setStyleSheet("color: white;")
 
         labels_32 = ["odom_pos_x", "odom_pos_y", "odom_pos_z", "odom_ori_x", "odom_ori_y", "odom_ori_z", "odom_ori_w", 
-                     "motor_r_A", "motor_r_Nm", "motor_l_A", "motor_l_Nm", "battery_voltage", "cmd_vel_x", "cmd_vel_z"
+                     "motor_r_A", "motor_r_Nm", "motor_l_A", "motor_l_Nm", "battery_voltage", "cmd_vel_x", "cmd_vel_z",
+                     "tf_pos_x", "tf_pos_y", "tf_pos_z", "tf_ori_x", "tf_ori_y", "tf_ori_z", "tf_ori_w"
             ]
 
         for label_name_32 in labels_32:
@@ -508,11 +510,14 @@ class MainWindow(QMainWindow):
         # IP 주소 읽어오기
         stdin, stdout, stderr = ssh.exec_command('ip a')
         ip_info = stdout.read().decode('utf-8')
-        
+
+        time.sleep(5)
         # IP 주소 추출 (예: 'inet 192.168.1.100' 부분을 찾기)
         ip_lines = [line for line in ip_info.splitlines() if 'inet ' in line]
         #ip_address = ip_lines[0].split()[1] if ip_lines else 'IP not found'
         #print(ip_address)
+
+        
         ip_addresses = []
         for line in ip_lines:
             # "inet" 뒤에 있는 IP 주소 부분만 추출
@@ -588,6 +593,9 @@ def main():
 
     odom_thread = ROS2Thread(OdomListener, s_admin)
     odom_thread.start()
+
+    tf_thread = ROS2Thread(TfListener, s_admin)
+    tf_thread.start()
 
     #map_thread = ROS2Thread(MapTopicListener, s_admin)
     #map_thread.start()
