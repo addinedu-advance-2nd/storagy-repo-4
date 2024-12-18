@@ -27,7 +27,7 @@ from cam_stream import CamStream
 from battery_listener import BatteryListener
 from cmd_vel_listener import CmdVelListener
 from cam_stream import CameraThread
-from topic_tab import TopicTabView
+#from topic_tab import TopicTabView
 from motor_state_listener import MotorStateListener
 from odom_listener import OdomListener
 from cmd_vel_pub import CmdVelPub
@@ -128,10 +128,10 @@ class MainWindow(QMainWindow):
         self.nav_layout = QVBoxLayout()
         self.nav_tab.setLayout(self.nav_layout)
 
-        self.nav_tap_view = TopicTabView(self.nav_tab_page)  
+        #self.nav_tap_view = TopicViewer(self.nav_tab_page)  
 
         # topic_tab.ui를 main_tab에 추가
-        self.nav_layout.addWidget(self.nav_tap_view)
+        #self.nav_layout.addWidget(self.nav_tap_view)
 
         self.stylesheet_all()
 
@@ -170,6 +170,10 @@ class MainWindow(QMainWindow):
             }
             
         """)
+
+        self.topic_tab.setStyleSheet("background-color: #212024;")
+        self.service_tab.setStyleSheet("background-color: #212024;")
+        self.nav_tab.setStyleSheet("background-color: #212024;")
 
 
         # QFrame 스타일시트 설정

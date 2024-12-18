@@ -45,6 +45,22 @@ class TopicViewer(QWidget):
         self.setWindowTitle("ROS 2 Topic Subscriber")
         self.setGeometry(100, 100, 800, 600)
 
+        # 스타일 시트 적용
+        self.setStyleSheet("""
+            QLabel, QListWidget, QHBoxLayout, QTextEdit {
+                color: white;  /* 글자 색상 흰색 */
+                background-color: #2c2d30;  /* 배경 색상 검정 */
+            }
+            QTextEdit, QLineEdit {
+                color: white;  /* 글자 색상 흰색 */
+                background-color: #2c2d30;  /* 배경 색상 검정 */
+            }
+            QPushButton {
+                color: white;
+                background-color: #2c2d30;  /* 버튼 배경 회색 */
+            }
+        """)
+
         # 레이아웃
         main_layout = QHBoxLayout()
         left_layout = QVBoxLayout()
@@ -52,7 +68,9 @@ class TopicViewer(QWidget):
 
         # 왼쪽 패널: 토픽 리스트와 구독 버튼
         self.topic_list = QListWidget()
+        self.topic_list.setStyleSheet("background-color: #2c2d30;")  # Dark background
         self.subscribe_button = QPushButton("구독 시작")
+        self.subscribe_button.setStyleSheet("color: white; background-color: #2c2d30;")  # Dark button with white text
 
         left_layout.addWidget(QLabel("토픽 리스트:"))
         left_layout.addWidget(self.topic_list)
@@ -61,6 +79,7 @@ class TopicViewer(QWidget):
         # 오른쪽 패널: 수신된 데이터 표시
         self.result_display = QTextEdit()
         self.result_display.setReadOnly(True)
+        self.result_display.setStyleSheet("background-color: #2c2d30;")  # Dark background
 
         right_layout.addWidget(QLabel("수신된 데이터:"))
         right_layout.addWidget(self.result_display)
@@ -76,7 +95,7 @@ class TopicViewer(QWidget):
         # 100초마다 토픽 리스트 갱신
         self.topic_update_timer = QTimer(self)
         self.topic_update_timer.timeout.connect(self.update_topic_list)
-        self.topic_update_timer.start(1000)  # 100초마다 업데이트
+        self.topic_update_timer.start(10000)  # 100초마다 업데이트
 
         # 구독 버튼 클릭 시 토픽 구독 시작
         self.subscribe_button.clicked.connect(self.start_subscribing)
