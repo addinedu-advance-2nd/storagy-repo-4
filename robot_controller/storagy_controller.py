@@ -9,7 +9,7 @@ from geometry_msgs.msg import PoseWithCovarianceStamped
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image
 
-# from control_msgs.msg import RobotArriveState, RobotRecevieMoving, RobotRequestMoving
+from control_msgs.msg import RobotArriveState, RobotRecevieMoving, RobotRequestMoving
 
 import math
 import time
@@ -18,11 +18,13 @@ from cv_bridge import CvBridge
 import cv2
 from cv2 import aruco
 
-PositionDict = {'init':[0, 0],
-                'printer':[0, 1],
+import threading
+
+PositionDict = {'init':[0., 0.],
+                'printer':[0., 1.],
                 'corridor1':[0.04, 0.62],
-                'corridor2':[2.26, 0.79],
-                'corridor3':[3.96, 0.89],
+                'corridor2':[2.26, 0.1],
+                'corridor3':[3.32, 0.31],
                 'A1':[0.26, 1.97],
                 'A2':[0.33, 2.64],
                 'B1':[2.39, 1.78],
@@ -74,11 +76,10 @@ class RobotController(Node):
         super().__init__('RobotController')
         
         self._action_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
-        # self.move_subscriber = self.create_subscription(RobotRequestMoving, '/moving_request', self.get_destination, 10)
+        self.move_subscriber = self.create_subscription(RobotRequestMoving, '/moving_request', self.get_destination, 10)
         
         self.cmd_vel_publisher = self.create_publisher(Twist, '/cmd_vel', 10)
-        # self.robot_arrive_publisher = self.create_publisher(RobotArriveState, '/arrived_receive', 10)
-        # self.amcl_subscriber = self.create_subscription(PoseWithCovarianceStamped, '/amcl_pose', self.amcl_pose_callback, 10)
+        self.robot_arrive_publisher = self.create_publisher(RobotArriveState, '/arrived_receive', 10)
         
         self.goal_handle = None
         # self.move_to_goal('corridor2')
@@ -91,51 +92,47 @@ class RobotController(Node):
         self.goal_y = None
         self.goal_angle = None
 
+        self.req_sys = None
+        self.user_name = None
+        self.destinations = None
+
         self.position = {'x': 0.0, 'y': 0.0, 'theta': 0.0}
+
+        positions = [0.04, 0.62, 2.26, 0.1, 2.41, 2.55]
+        self.destinations = [positions[i:i+2] for i in range(0, len(positions), 2)]
+        self.move_to_goal()
 
         # self.navigation_to_goal([0.04, 0.62])
         # self.manual_move([[3.96, 0.89]])
-        self.move_to_goal([[0.04, 0.62],[2.26, 0.79], [2.41, 2.55]])
+        # self.destination = [[0., 1.]]
+        # self.move_to_goal()
 
         
 
     def get_destination(self, msg):
-        req_sys = msg.request_system
-        user_name = msg.user_name
-        self.destination = msg.positions
-
+        print(msg)
+        self.req_sys = msg.request_system
+        self.user_name = msg.user_name
+        positions = msg.positions
+        self.destinations = [positions[i:i+2] for i in range(0, len(positions), 2)]
         self.move_to_goal()
+        
 
         # self.send_arrive_state(req_sys, user_name, is_arrived=True)
 
-    # def send_arrive_state(self, request_system, user_name, is_arrived=True):
-    #     msg = RobotArriveState()
-    #     msg.is_arrived = is_arrived
-    #     msg.positions = [self.position['x'], self.position['y']]
-    #     msg.request_system = request_system
-    #     msg.user_name = user_name
-    #     self.robot_arrive_publisher.publish(msg)
-    #     print('arrived_goal')
+    def send_arrive_state(self, request_system, user_name, is_arrived=True):
+        msg = RobotArriveState()
+        msg.is_arrived = is_arrived
+        msg.positions = [self.position['x'], self.position['y']]
+        msg.request_system = request_system
+        msg.user_name = user_name
+        self.robot_arrive_publisher.publish(msg)
+        print('arrived_goal')
     
     def move_to_goal(self):    #움직임 실행 
-        if self.destination:
-            self.navigation_to_goal(self.destination[0])
-            self.destination.pop(0)
-        # while self.navigation_moving:
-        #     pass
-        #     # self.get_logger().info("waiting for navigation to finish...")
-        # # self.manual_move(self.destination[1:])
-        
-        # self.navigation_moving = True
-        # self.navigation_to_goal(destination[1])
-        # while self.navigation_moving:
-        #     # self.get_logger().info("waiting for navigation to finish...")
-        #     pass
-        # self.navigation_moving = True
-        # self.navigation_to_goal(destination[2])
-        # while self.navigation_moving:
-        #     # self.get_logger().info("waiting for navigation to finish...")
-        #     pass
+        if self.destinations:
+            print(self.destinations)
+            self.navigation_to_goal(self.destinations[0])
      
     def stop_robot(self):
         twist = Twist()
@@ -182,10 +179,20 @@ class RobotController(Node):
         self.navigation_moving = False
         if result:
             self.get_logger().info('Goal succeeded!')
+
+        print(self.destinations)
+        self.destinations.pop(0)
+        print(self.destinations)
+
+        # time.sleep(2)
+
+        # self.send_arrive_state(self.req_sys, self.user_name, is_arrived=True)
+        
         
         self.move_to_goal()
 
         # 여기 도착 완료 토픽 발행, 아이디, 주문 같이 반환
+        
 
     def feedback_callback(self, feedback):
         # 피드백이 올 때마다 호출되는 콜백
@@ -195,7 +202,7 @@ class RobotController(Node):
         # print(feedback.feedback.navigation_time.sec)
 
         # 70cm 이내로 들어오면 네비게이션 종료
-        if 0.01 < feedback.feedback.distance_remaining < 0.7 and feedback.feedback.navigation_time.sec > 1:
+        if 0.01 < feedback.feedback.distance_remaining < 0.4 and feedback.feedback.navigation_time.sec > 1:
             self.cancel_goal()
 
     def cancel_goal(self):
@@ -217,12 +224,14 @@ class RobotController(Node):
             self.set_goal(node)
             print('goal:', self.goal_x, self.goal_y)
 
-            distnace_error = self.remain_distance()
+            pose, angle = self.estimate_pose_with_aruco_marker('printer')
+
+            distnace_error = self.remain_distance(self.goal_x, self.goal_y, pose[0], pose[1])
             print(distnace_error)
 
             while distnace_error > 0.3:
-                distnace_error = self.remain_distance()
-                angle_error = self.distance_angle_diff()
+                distnace_error = self.remain_distance(self.goal_x, self.goal_y, pose[0], pose[1])
+                angle_error = self.distance_angle_diff(self.goal_x, self.goal_y, pose[0], pose[1], angle)
                 if angle_error > 0.3:
                     self.PID_move(distnace_error, angle_error, angle_only=True)
                 else:
@@ -232,13 +241,13 @@ class RobotController(Node):
                 print('angle error: ', angle_error)
 
                 time.sleep(0.2)
-        # for i in range(10):
+        # for i in range(40):
         #     twist = Twist()
-        #     twist.linear.x = -0.3
+        #     twist.linear.x = 0.3
         #     twist.angular.z = 0.0
         #     self.cmd_vel_publisher.publish(twist)
         #     print('cmd vel published')
-        #     time.sleep(0.2)
+        #     time.sleep(0.1)
 
     
     def set_goal(self, node):
@@ -246,13 +255,13 @@ class RobotController(Node):
         self.goal_y = node[1]
         # self.goal_angle = node[2]
     
-    def remain_distance(self):
-        return math.sqrt((self.goal_x-self.position['x'])**2 + (self.goal_y-self.position['y'])**2)
+    def remain_distance(goal_x, goal_y, position_x, position_y):
+        return math.sqrt((goal_x-position_x)**2 + (goal_y-position_y)**2)
     
-    def distance_angle_diff(self):
-        dx = self.goal_x - self.position['x']
-        dy = self.goal_y - self.position['y']
-        angle_error = self.normalize_angle(math.atan2(dy, dx) - self.position['theta'])
+    def distance_angle_diff(self, goal_x, goal_y, position_x, position_y, position_theta):
+        dx = goal_x - position_x
+        dy = goal_y - position_y
+        angle_error = self.normalize_angle(math.atan2(dy, dx) - position_theta)
         return angle_error
 
     def normalize_angle(self, angle):
@@ -262,29 +271,28 @@ class RobotController(Node):
             angle += 2 * math.pi
         return angle
 
-    def PID_move(self, distnace_error, angle_error,  angle_only=False):
-        pose = self.estimate_pose_with_aruco_marker()
-        if pose is None:
-            pose = self.position # 네비게이션 amcl pose
-
+    def PID_move(self, distance_error, angle_error,  angle_only=False):
         twist = Twist()
         angular_speed = self.pid_angular.process(angle_error)
         twist.angular.z = angular_speed
         twist.linear.x = 0.
         if angle_only == False:
-            linear_speed = self.pid_linear.process(distnace_error)
+            linear_speed = self.pid_linear.process(distance_error)
             twist.linear.x = linear_speed
         
         self.cmd_vel_publisher.publish(twist) 
     
-    def estimate_pose_with_aruco_marker(self):
-        detected_position = None
-        # detected_position = self.detect_aruco_marker()
-        # if detected_position is not None:
-        #     if amcl과 거리가 크면 or 각도 차이가 크면:
-        #         self.publish_initial_pose(x, y, theta)
+    # def estimate_pose_with_aruco_marker(self, aruco_name):
+    #     detected_position = None
+    #     tvec, rvec = self.detect_aruco_marker()
+    #     current_pose = aruco_pose[aruco_name] + tvec
+    #     current_angle = aruco_angle[aruco_name] + rvec
+        
+    #     # if detected_position is not None:
+    #     #     if amcl과 거리가 크면 or 각도 차이가 크면:
+    #     #         self.publish_initial_pose(x, y, theta)
 
-        return detected_position
+    #     return current_pose, current_angle
     
     # def rotate_to_goal(self):                 # 이거 이제 안씀
     #     dx = self.goal_x - self.position['x']
@@ -329,33 +337,55 @@ class AmclSubscriber(Node):
         yaw = math.atan2(t3, t4)
         return [yaw, pitch, roll]
 
-# class ImageSubscriber(Node):
-#     def __init__(self):
-#         super().__init__('Camera_Image_Subscriber')
-#         self.image_subscriber = self.create_subscription(Image, '/camera/color/image_raw', self.camera_callback, 10)
+class ImageSubscriber(Node):
+    def __init__(self):
+        super().__init__('Camera_Image_Subscriber')
+        self.image_subscriber = self.create_subscription(Image, '/camera/color/image_raw', self.camera_callback, 10)
 
-#         self.bridge = CvBridge()
+        self.bridge = CvBridge()
 
-#         aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
-#         parameters = aruco.DetectorParameters()
-#         self.detector = aruco.ArucoDetector(aruco_dict, parameters)
+        # aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
+        # parameters = aruco.DetectorParameters()
+        # self.detector = aruco.ArucoDetector(aruco_dict, parameters)
 
-#     def camera_callback(self, msg):
-#         cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-#         gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
+    def camera_callback(self, msg):
+        cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+        gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
 
-#         corners, ids, rejectedCandidates = self.detector.detectMarkers(gray)
-#         print(cv_image.shape)
+        corners, ids, rejectedCandidates = self.detector.detectMarkers(gray)
+        print(cv_image.shape)
 
 
         
 def main(args=None):
 
+    # rp.init(args=args)
+
+    # robot_controller_thread = threading.Thread(target=RobotController)
+    # amcl_subscriber_thread = threading.Thread(target=AmclSubscriber)
+
+    # robot_controller_thread.start()
+    # amcl_subscriber_thread.start()
+
+    # # 스레드 종료 대기
+    # robot_controller_thread.join()
+    # amcl_subscriber_thread.join()
+
+
+
+
+
+
+
+
+
     rp.init(args=args)
+
     robot_controller = RobotController()
     amcl_subscriber = AmclSubscriber(robot_controller)
     # camera_subscriber = ImageSubscriber()
-    
+
+
 
     executor = MultiThreadedExecutor()
     executor.add_node(robot_controller)

@@ -8,7 +8,7 @@ import shutil   #파일 작업 (복사 이동 디렉토리 복제) 라이브러�
 import requests   #HTTP 요청 처리 
 import asyncio
 from control_msgs.msg import RobotRecevieMoving,AlertToChat
-TOKEN = ""
+
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -19,7 +19,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 user_requests = {}
 
-
+TOKEN = ""
 
 
 def copy_to_local_folder(src_path, dest_folder, user_name):   #지정된 폴더에 복사
@@ -46,16 +46,17 @@ class DiscordBot(Node):
         self.get_logger().info("DiscordBot node has started.")
         self.timer = self.create_timer(1.0, self.send_command)
 
-    def send_command(self, user_id, user_name):  # ROS2 노드와 Discord bot 상호 작용. 요청물 로봇 시스템에 전달 사용자 정보 저장
+    def send_command(self, user_name):  # ROS2 노드와 Discord bot 상호 작용. 요청물 로봇 시스템에 전달 사용자 정보 저장
         msg = RobotRecevieMoving()
         msg.request_system = 'chatbot'
         msg.user_name = user_name      #명령 요청한 사용자 이름 
+        #msg.user_id = user_id  
         self.publisher_.publish(msg)
 
                            # 요청한 사용자 정보 저장
-        user_requests[user_id] = user_name
-        self.get_logger().info(f"Publishing command for user: '{user_name}'")
-
+        user_requests[user_name] = user_name
+        #self.get_logger().info(f"Publishing command for user: '{user_name}'")
+        self.get_logger().info(f"Publishing command : '{msg}'")
 
     def alert_callback(self, msg):
         
@@ -100,8 +101,8 @@ rclpy.init()
 
 node = DiscordBot()
 
-async def send_to_robot(command, user_info):  
-    node.send_command(user_info)
+async def send_to_robot(user_name):  
+    node.send_command(user_name)
 
 from discord.ui import Button, View
 
@@ -136,21 +137,10 @@ async def robot_command(ctx, *, command=None):
     user = ctx.author    #여기서 디스코드 사용자 정보 갖고 옴
     user_info = f"User: {user.name} ({user.id}), Nickname: {user.display_name}"  #사용자 닉네임
     await ctx.send(f"Sending command to robot: {command}")     #command 안쓰면 에러 
-    await send_to_robot(command, user.display_name)
+    await send_to_robot( user.display_name)
     await ctx.send(f"명령 '{command}'을 로봇으로 전송했습니다.")
 
 
-  
-@bot.command(name="robot", aliases=["호출", "와", "come", "c"])
-async def robot_command(ctx, *, command=None):
-    if command is None:
-        await ctx.send("사용법: `!robot <command>` 형태로 명령어를 입력해주세요.")
-        return
-    user = ctx.author    #여기서 디스코드 사용자 정보 갖고 옴
-    user_info = f"User: {user.name} ({user.id}), Nickname: {user.display_name}"  #사용자 닉네임
-    await ctx.send(f"Sending command to robot: {command}")     #command 안쓰면 에러 
-    await send_to_robot(command, user.display_name)
-    await ctx.send(f"명령 '{command}'을 로봇으로 전송했습니다.")
 '''
 @bot.command(name="handle_delay")
 async def handle_delay(ctx):
