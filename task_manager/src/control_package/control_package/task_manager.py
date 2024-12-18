@@ -229,9 +229,11 @@ def main(args=None):
     rp.init(args=args)
     task_manager = TaskManager()
     arrive_subscriber = ArriveSubscriber(task_manager)
+    print_subscriber = PrinterSubscriber(task_manager)
     executor = MultiThreadedExecutor()
     executor.add_node(task_manager)
     executor.add_node(arrive_subscriber)
+    executor.add_node(print_subscriber)
   
     try:
         executor.spin()
@@ -240,7 +242,7 @@ def main(args=None):
         executor.shutdown()
         task_manager.destroy_node()
         arrive_subscriber.destroy_node()
-       
+        print_subscriber.destroy_node()
         rp.shutdown()     
 
 if __name__ == '__main__':
