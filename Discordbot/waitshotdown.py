@@ -3,6 +3,7 @@ from discord.ext import commands
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
+import threading  # 스레드 라이브러리
 import os
 import shutil   #파일 작업 (복사 이동 디렉토리 복제) 라이브러리
 import requests   #HTTP 요청 처리 
@@ -20,6 +21,10 @@ intents.message_content = True    #메세지 내용에 접근 권한 활성화
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 user_requests = {}
+
+
+# 전역 변수 선언
+node = None
 
 TOKEN = ""
 
@@ -46,9 +51,13 @@ class DiscordBot(Node):
             10  # 큐 크기
         )
         self.get_logger().info("DiscordBot node has started.")
-        self.timer = self.create_timer(1.0, self.send_command)
+        #self.timer = self.create_timer(1.0, self.send_command)
 
-    def send_command(self, user_name):  # ROS2 노드와 Discord bot 상호 작용. 요청물 로봇 시스템에 전달 사용자 정보 저장
+    def send_command(self, user_name=None):  # ROS2 노드와 Discord bot 상호 작용. 요청물 로봇 시스템에 전달 사용자 정보 저장
+        if user_name is None:
+            self.get_logger().warning("user_name이 제공되지 않았습니다. 명령을 발행하지 않습니다.")
+            return
+      
         msg = RobotRecevieMoving()
         msg.request_system = 'chatbot'
         msg.user_name = user_name      #명령 요청한 사용자 이름 
@@ -61,7 +70,7 @@ class DiscordBot(Node):
         self.get_logger().info(f"Publishing command : '{msg}'")
 
     def alert_callback(self, msg):
-        
+        self.get_logger().info(f"Received message: {msg}")
         asyncio.run_coroutine_threadsafe(
             self.notify_requester(msg), bot.loop
         )
@@ -113,9 +122,6 @@ async def send_alert_to_discord(self, alert_message):
         await wait_command(None)
 '''
 
-rclpy.init()
-
-node = DiscordBot()
 
 async def send_to_robot(user_name):  
     node.send_command(user_name)
@@ -263,21 +269,21 @@ async def print_file(ctx):
         
         
 
-@bot.command(name="requests")
-async def list_requests(ctx):
-    if user_requests:
-        response = "**현재 요청된 파일 목록:**\n"
-        for user_id, info in user_requests.items():
-            response += (
-                f"- **사용자**: {info['user_name']} (ID: {user_id})\n"
-                f"  닉네임: {info['display_name']}\n"
-                f"  파일명: {info['file_name']}\n"
-                f"  저장 경로: {info['dest_path']}\n"
-                f"  상태: {info['status']}\n\n"
-            )
-        await ctx.send(response)
-    else:
-        await ctx.send("현재 요청된 파일이 없습니다.")
+# @bot.command(name="requests")
+# async def list_requests(ctx):
+#     if user_requests:
+#         response = "**현재 요청된 파일 목록:**\n"
+#         for user_id, info in user_requests.items():
+#             response += (
+#                 f"- **사용자**: {info['user_name']} (ID: {user_id})\n"
+#                 f"  닉네임: {info['display_name']}\n"
+#                 f"  파일명: {info['file_name']}\n"
+#                 f"  저장 경로: {info['dest_path']}\n"
+#                 f"  상태: {info['status']}\n\n"
+#             )
+#         await ctx.send(response)
+#     else:
+#         await ctx.send("현재 요청된 파일이 없습니다.")
 
 @bot.command(name="userinfo")
 async def user_info(ctx):
@@ -413,6 +419,22 @@ async def on_message(message):
     await bot.process_commands(message)
 
    '''
+# ROS 2 노드 스레드 실행 함수
+def ros_spin_thread():
+    rclpy.init()
+    global node  # 전역 변수를 사용한다고 명시
+    node = DiscordBot()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        node.get_logger().info("ROS 2 노드가 종료되었습니다.")
+    finally:
+        rclpy.shutdown()
+
+
+# ROS 2 스레드 실행
+ros_thread = threading.Thread(target=ros_spin_thread, daemon=True)
+ros_thread.start()
 
 bot.run(TOKEN)
 
