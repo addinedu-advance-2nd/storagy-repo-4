@@ -76,19 +76,22 @@ class DiscordBot(Node):
         )
        
     async def notify_requester(self, message):
-        alert_message=message.msg
-        user_id=message.user_id
-        user_name =message.user_name
-    # 요청한 사용자에게만 알림
-        for user_id, user_name in user_requests.items():
-            
-            user = bot.get_user(user_id)  # 사용자 객체 가져오기
-            print(user)
+        alert_message = message.msg
+        user_id = message.user_id
+        user_name = message.user_name
+
+        self.get_logger().info(f"전송할 알림 메시지: {alert_message}, 사용자 ID: {user_id}, 이름: {user_name}")
+    
+        try:
+            user = await bot.fetch_user(user_id)  # fetch_user로 사용자 객체 가져오기
             if user:
-                try:
-                    await user.send(f"🚨 로봇 알림: {alert_message} (요청자: {user_name})")
-                except Exception as e:
-                    self.get_logger().error(f"사용자 {user_name}에게 알림 전송 실패: {e}")
+                await user.send(f" 로봇 알림: {alert_message}")
+                self.get_logger().info(f"사용자 {user_name}({user_id})에게 알림 전송 완료.")
+            else:
+                self.get_logger().error(f"사용자 {user_id}를 찾을 수 없습니다.")
+        except Exception as e:
+            self.get_logger().error(f"사용자 {user_name}({user_id})에게 알림 전송 실패: {e}")
+
     
     
     def load_commands():
