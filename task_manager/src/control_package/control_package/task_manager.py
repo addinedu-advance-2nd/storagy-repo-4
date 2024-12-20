@@ -8,8 +8,12 @@ from datetime import datetime
 import time
 import json
 from pymongo.mongo_client import MongoClient
+import asyncio
+from collections import deque
 
 #python -m pip install "pymongo[srv]"==3.6
+waiting_time = 10
+
 
 """
 기능1) 디스코봇에서 간식,사무용품 호출
@@ -50,6 +54,16 @@ class TaskManager(Node):
     
     def __init__(self):     
         super().__init__('task_manager')
+        self.task_queue = deque()  # 사용자와 메시지를 저장할 deque
+
+          
+        self.isAvailable = True #스토리지 사용 가능 여부 ( 만약 프린터 시스템에서 사용중일 경우, True 처리 시키기)
+        self.isArrived = False #스토리지 이동 완료 
+        self.result_msg = None
+        self.isPrintComplete = False #프린트완료 여부
+        
+        self.last_user_name = ""
+        self.last_user_time = None
 
         """
         MongoDB Atlas 클라우드 데이터 베이스 연동        
@@ -61,14 +75,6 @@ class TaskManager(Node):
         self.collection = self.db["USER_POSITION"]  # 컬렉션 이름
 
         
-          
-        self.isAvailable = True #스토리지 사용 가능 여부 ( 만약 프린터 시스템에서 사용중일 경우, True 처리 시키기)
-        self.isArrived = False #스토리지 이동 완료 
-        self.result_msg = None
-        self.isPrintComplete = False #프린트완료 여부
-        
-        self.requset_queue = []
-
         # 구독 - 스토리지 이동 요청 받기 (채팅봇, 프린터기 -> 매니저)
         self.receive_move_subscriber = self.create_subscription(RobotRecevieMoving, '/moving_receive', self.receive_request_callback, 10)     
         self.receive_move_subscriber  
@@ -108,13 +114,55 @@ class TaskManager(Node):
         else:
             self.get_logger().info(f"No data found for key: {key}")
             return None
+        
+    def add_task(self, user, message):
+        # 사용자와 메시지를 deque에 추가
+        self.task_queue.append((user, message))
+
+    def remove_tasks(self):
+        # 첫 번째 작업을 가져와 처리
+        if self.task_queue:
+            user, message = self.task_queue.popleft()  # FIFO 방식으로 처리
+            print(f"Processing task for user {user}: {message}")
+        else:
+            print("No tasks to process.")
+
+    def excute_task(self, command = None):    
+        if self.task_queue:
+            #정상처리
+            if command is None:           
+                self.receive_request_callback(next(iter(self.task_queue[0].values())) , False)
+            # 대기 후 종료하기
+            else:
+                self.receive_request_callback(next(iter(self.task_queue[0].values())) , False, command)
+        else:
+            self.get_logger().info("Task queue is empty.")
+            return      
+        
+    
 
     #스토리지 이동 요청이 들어왔을 경우
-    def receive_request_callback(self, msg):     
+    def receive_request_callback(self, msg, isFromInterface = True, command = None):     
+        ########################################
+        if isFromInterface: 
+            # 스토리지 이동 요청 처리
+            if self.ends_process(msg.user_name):
+                if self.check_first_requester(msg.user_name):
+                    self.remove_tasks() #task que에서 삭제
+                else:
+                    return
+            else:
+                self.add_task(msg.user_name, msg)
+        else:
+            if command is not None:
+                msg.user_name = msg.user_name+"_B"
+        ##########################################
+
         print_file_path = msg.file_path
         self.isAvailable = False #    
         self.get_logger().info('Request System: "%s", User Name: "%s"' % (msg.request_system, msg.user_name))  
-    
+
+        
 
         ###########################################################################
          # 스토리지 이동 요청지 - 프린터 일 경우 
@@ -180,9 +228,8 @@ class TaskManager(Node):
             while not self.isArrived:                  
                 # rp.spin_once(self)
                 pass
-
-
-       
+            
+           
 
         ###########################################################################
         # 스토리지 이동 요청지 - (프린터 외) 챗봇
@@ -205,17 +252,44 @@ class TaskManager(Node):
             while not self.isArrived:
                 # rp.spin_once(self)
                 pass
-
-
+ 
         #이동 완료 후 상태값들 초기화
         self.init_vars()
-    
+
+        #마지막 사용자(복귀 명령어는 "")와 시간 저장
+        if self.ends_process(msg.user_name):
+            self.modify_last_user("")
+        else:
+            self.modify_last_user(msg.user_name)
+
+    def ends_process(self, variable):
+        """주어진 문자열이 '_B'로 끝나는지 확인하는 함수."""
+        return variable.endswith('_B')
+
 
     def init_vars(self):              
         self.isAvailable = True #스토리지 사용 가능 여부 ( 만약 프린터 시스템에서 사용중일 경우, True 처리 시키기)
         self.isArrived = False #스토리지 이동 완료 
         self.result_msg = None
         self.isPrintComplete = False #프린트완료 여부
+
+    #마지막 사용자 값 저장
+    def modify_last_user(self, user):        
+        self.last_user_name = user       
+        self.last_user_time = time.time() 
+        print(f"마지막 사용자 : '{user}'(마지막 이용시간:{self.last_user_time})")   
+
+    def check_first_requester(self, user):
+        if self.task_queue:
+            return next(iter(self.task_queue[0].keys()))  == user.replace('_B', '')  
+        else:
+            self.get_logger().info("Task queue is empty.")
+            return      
+        
+          
+
+
+
 
 class ArriveSubscriber(Node):
     def __init__(self, taskmanager):
@@ -247,17 +321,44 @@ class PrinterSubscriber(Node):
         self.task_manager.result_msg = msg
         self.get_logger().info('I heard print_complete_callback : "%s" ' %( msg.data))    
        
-     
+class TaskQueManager(Node):
+    def __init__(self, taskmanager):
+        super().__init__('que_manager')
+        self.task_manager = taskmanager
+        self.timer = self.create_timer(10, self.task_scheduler)  # 2초마다 타이머 콜백 호출
+        
+    def task_scheduler(self):
+       #현재 스토리지가 실행 중이 아니라면(isAvailable = True)
+        if self.task_manager.isAvailable:
+            #마지막 사용자와 que[0]에 사용자가 일치 하고, 시간이 waiting시간을 초과했다면 종료 , 종료 처리
+            if self.check_first_requester(self.task_manager.last_user_name):
+                current_time = time.time()
+                # 시간 차이를 계산
+                time_difference = current_time - self.task_manager.last_user_time
+
+                if time_difference > waiting_time: 
+                    self.task_manager.excute_task("exit")
+                else:
+                    pass
+
+            #순차 처리  
+            else:
+                self.task_manager.excute_task()
+
+        else : 
+            pass
         
 def main(args=None):
     rp.init(args=args)
     task_manager = TaskManager()
     arrive_subscriber = ArriveSubscriber(task_manager)
     print_subscriber = PrinterSubscriber(task_manager)
+    que_manager = TaskQueManager(task_manager)
     executor = MultiThreadedExecutor()
     executor.add_node(task_manager)
     executor.add_node(arrive_subscriber)
     executor.add_node(print_subscriber)
+    executor.add_node(que_manager)
   
     try:
         executor.spin()
@@ -267,6 +368,7 @@ def main(args=None):
         task_manager.destroy_node()
         arrive_subscriber.destroy_node()
         print_subscriber.destroy_node()
+        que_manager.destroy_node()
         rp.shutdown()     
 
 if __name__ == '__main__':
