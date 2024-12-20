@@ -43,7 +43,8 @@ from pymongo.mongo_client import MongoClient
 #                 }
 
 
-PositionDict = {'init':[0.018, -0.027]}
+#PositionDict = {'init':[0.018, -0.027]}
+PositionDict = {'init':[0, -0]}
 
 class TaskManager(Node):
     
