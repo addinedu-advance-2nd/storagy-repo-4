@@ -147,8 +147,11 @@ class TaskManager(Node):
         if isFromInterface: 
             # 스토리지 이동 요청 처리
             if self.ends_process(msg.user_name):
-                if self.check_first_requester(msg.user_name):
-                    self.remove_tasks() #task que에서 삭제
+                if self.task_queue:
+                    if self.check_first_requester(msg.user_name):
+                        self.remove_tasks() #task que에서 삭제
+                    else :
+                        return
                 else:
                     return
             else:
@@ -331,7 +334,7 @@ class TaskQueManager(Node):
        #현재 스토리지가 실행 중이 아니라면(isAvailable = True)
         if self.task_manager.isAvailable:
             #마지막 사용자와 que[0]에 사용자가 일치 하고, 시간이 waiting시간을 초과했다면 종료 , 종료 처리
-            if self.check_first_requester(self.task_manager.last_user_name):
+            if self.task_manager.check_first_requester(self.task_manager.last_user_name):
                 current_time = time.time()
                 # 시간 차이를 계산
                 time_difference = current_time - self.task_manager.last_user_time
