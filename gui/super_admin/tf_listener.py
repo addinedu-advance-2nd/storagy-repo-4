@@ -27,9 +27,9 @@ class TfListener(Node):
             # 회전
             rotation = transform.transform.rotation
             
-            self.get_logger().info(f"Transform from {frame_id} to {child_frame_id}:")
-            self.get_logger().info(f"  Translation: x={translation.x}, y={translation.y}, z={translation.z}")
-            self.get_logger().info(f"  Rotation: x={rotation.x}, y={rotation.y}, z={rotation.z}, w={rotation.w}")
+            #self.get_logger().info(f"Transform from {frame_id} to {child_frame_id}:")
+            #self.get_logger().info(f"  Translation: x={translation.x}, y={translation.y}, z={translation.z}")
+            #self.get_logger().info(f"  Rotation: x={rotation.x}, y={rotation.y}, z={rotation.z}, w={rotation.w}")
 
         
         # 소수점 2자리로 정리
