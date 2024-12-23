@@ -409,9 +409,9 @@ class MainWindow(QMainWindow):
                 self.view_3d_dep_layout = self.view_3d_lidar.layout()
 
             self.view_3d_lidar_layout = self.view_3d_lidar.layout()
-            self.imu_widget_lidar = LidarVisualization()
+            self.imu_widget_lidar = LidarVisualization(self.s_admin)
             #self.imu_widget_lidar = DepthScanSubscriber(self.s_admin, "/scan")
-            self.view_3d_lidar_layout.addWidget(self.imu_widget_lidar)
+            #self.view_3d_lidar_layout.addWidget(self.imu_widget_lidar)
         else:
             if self.view_3d_dep.layout() is not None:
                 # 레이아웃의 모든 위젯 제거

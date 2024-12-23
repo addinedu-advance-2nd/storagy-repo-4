@@ -11,9 +11,11 @@ import cv2
 from cv_bridge import CvBridge
 
 class LidarVisualization(Node, QWidget):
-    def __init__(self):
+    def __init__(self, s_admin):
         Node.__init__(self, 'lidar_visualization')
         QWidget.__init__(self)
+
+        self.s_admin = s_admin
 
         self.bridge = CvBridge()
         self.lidar_data = None  # Initialize lidar_data
@@ -43,8 +45,19 @@ class LidarVisualization(Node, QWidget):
         # Canvas for Matplotlib
         self.canvas = FigureCanvasQTAgg(self.figure)
         layout = QVBoxLayout()
-        layout.addWidget(self.canvas)
-        self.setLayout(layout)
+        #layout.addWidget(self.canvas)
+        #self.setLayout(layout)
+
+        #위젯 찾기
+        self.view_3d_lidar = self.s_admin.findChild(QWidget, "view_3d_lidar")
+        print(self.view_3d_lidar) 
+        
+        self.view_3d_lidar_layout = self.view_3d_lidar.layout()
+        #self.imu_widget_lidar = LidarVisualization()
+        #self.imu_widget_lidar = DepthScanSubscriber(self.s_admin, "/scan")
+        self.view_3d_lidar_layout.addWidget(self.canvas)
+
+
 
         # Timer for updating the plot
         self.timer = QTimer(self)
@@ -55,6 +68,7 @@ class LidarVisualization(Node, QWidget):
         # Process the LaserScan data
         ranges = np.array(msg.ranges)
         angles = np.linspace(msg.angle_min, msg.angle_max, len(ranges))
+        print(ranges)
 
         # Calculate x, y, z from polar coordinates
         x = -ranges * np.cos(angles)  # Reverse X for mirroring
