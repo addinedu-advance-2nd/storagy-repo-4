@@ -117,32 +117,23 @@ class TaskManager(Node):
         
     def add_task(self, user, message):
         # 사용자와 메시지를 deque에 추가
-        self.task_queue.append((user, message))
+        #self.task_queue.append((user, message))
+        self.task_queue.append({ user: message})  # 딕셔너리 형식으로 저장
+
 
     def remove_tasks(self):
         # 첫 번째 작업을 가져와 처리
         if self.task_queue:
-            user, message = self.task_queue.popleft()  # FIFO 방식으로 처리
-            print(f"Processing task for user {user}: {message}")
+            self.task_queue.popleft()  # FIFO 방식으로 처리
+            print(f"remove_tasks task [0]")
         else:
             print("No tasks to process.")
-
-    def excute_task(self, command = None):    
-        if self.task_queue:
-            #정상처리
-            if command is None:           
-                self.receive_request_callback(next(iter(self.task_queue[0].values())) , False)
-            # 대기 후 종료하기
-            else:
-                self.receive_request_callback(next(iter(self.task_queue[0].values())) , False, command)
-        else:
-            self.get_logger().info("Task queue is empty.")
-            return      
-        
     
-
+    '''
     #스토리지 이동 요청이 들어왔을 경우
-    def receive_request_callback(self, msg, isFromInterface = True, command = None):     
+    def receive_request_callback(self, msg, isFromInterface = True, command = None):   
+
+        self.get_logger().info('Request System: "%s", User Name: "%s"' % (msg.request_system, msg.user_name))   
         ########################################
         if isFromInterface: 
             # 스토리지 이동 요청 처리
@@ -163,7 +154,9 @@ class TaskManager(Node):
 
         print_file_path = msg.file_path
         self.isAvailable = False #    
-        self.get_logger().info('Request System: "%s", User Name: "%s"' % (msg.request_system, msg.user_name))  
+        
+        if self.task_queue:           
+            self.get_logger().info(f'task_queue : {len(self.task_queue)}')
 
         
 
@@ -265,6 +258,138 @@ class TaskManager(Node):
         else:
             self.modify_last_user(msg.user_name)
 
+    '''
+
+    #스토리지 이동 요청이 들어왔을 경우
+    def receive_request_callback(self, msg):   
+
+        self.get_logger().info('Request System: "%s", User Name: "%s"' % (msg.request_system, msg.user_name))          
+        self.add_task(msg.user_name, msg)
+        if self.task_queue:           
+            self.get_logger().info(f'task_queue : {len(self.task_queue)}')
+
+    
+    #스토리지 이동 및 처리
+    def excute_task(self, msg, command = None):   
+        self.get_logger().info('[request_task] Request System: "%s", User Name: "%s"' % (msg.request_system, msg.user_name))   
+        print_file_path = msg.file_path
+        self.isAvailable = False # 
+        ########################################
+        
+        #대기 사용 시간 완료 후 복귀처리를 위하여
+        if command is not None:
+            msg.user_name = msg.user_name+"_B"
+
+        if self.task_queue:
+            if self.ends_process(msg.user_name):
+                if self.check_first_requester(msg.user_name):
+                        self.remove_tasks() #task que에서 삭제    
+                else :
+                    self.isAvailable = True # 
+                    return #스토리지를 사용하지 않은 사람이 복귀 명령어를 호출할 경우는 처리X
+
+      
+        ##########################################
+
+        ###########################################################################
+         # 스토리지 이동 요청지 - 프린터 일 경우 
+        ###########################################################################
+        if msg.request_system == "print":   
+            print('프린터 시스템에서 호출') 
+
+            # 1.스토리지 프린터기로 이동 요청 - ROS 발행 
+            send_msg = RobotRequestMoving()             
+            send_msg.request_system = msg.request_system  # 메시지 내용              
+            send_msg.user_name = msg.user_name # 메시지 내용     
+            #send_msg.positions = array('f', PositionDict['print']) # 메시지 내용      
+            send_msg.positions = self.get_position_array('print') # 메시지 내용      
+                
+            self.request_move_publisher.publish(send_msg)           
+            self.get_logger().info('Publising : "%s", User Name: "%s"' % (send_msg.request_system, send_msg.user_name))     
+            self.get_logger().info(f"Publishing Detail: '{send_msg}'")
+
+            # 2.스토리지 도착 완료 - ROS 구독
+            self.isArrived = False #스토리지 이동 완료 
+            self.get_logger().info(f"Publishing isArrived: '{send_msg}'")
+            while not self.isArrived:                       
+                # rp.spin_once(self)
+                rp.spin_once(self, timeout_sec=0.1)
+
+ 
+            # 3.프린터시스템에 프린터 요청 - ROS 발행         
+            send_msg = RobotRecevieMoving()
+            send_msg.request_system = msg.request_system  
+            send_msg.user_name = msg.user_name # 메시지 내용  
+            send_msg.file_path = print_file_path  # 메시지 내용  
+           
+            self.request_print_publisher.publish(send_msg)
+            self.get_logger().info('Publishing: "%s"' % send_msg.file_path)         
+            self.get_logger().info(f"Publishing Detail: '{send_msg}'")
+           
+            # 4.프린터 시스템 인쇄 결과 ( 완료 OR 에러 ) -  ROS 구독
+            self.isPrintComplete = False 
+            self.result_msg = None
+            
+            while not self.isPrintComplete:           
+                rp.spin_once(self, timeout_sec=0.1)
+                # rp.spin_once(self)           
+               
+            #5. 스토리지 이동 요청 - (5-A)인쇄 성공 : 사용자에게 / (5-B)인쇄 에러 : 복귀
+            send_msg = RobotRequestMoving()       
+            send_msg.request_system = msg.request_system  # 메시지 내용
+         
+            #프린터 성공적으로 되었을 경우
+            if 'comp' in self.result_msg.data:
+                send_msg.user_name = msg.user_name     
+            #프린터 실패할경우, 스토리지 복귀
+            else:                
+                send_msg.user_name = msg.user_name+"_B" 
+          
+            #send_msg.positions = array('f',PositionDict[msg.user_name])# 메시지 내용   
+            send_msg.positions = self.get_position_array(msg.user_name) # 메시지 내용       
+            self.request_move_publisher.publish(send_msg)        
+            self.get_logger().info('Publising : "%s", User Name: "%s"' % (send_msg.request_system, send_msg.user_name))
+            self.get_logger().info(f"Publishing Detail: '{send_msg}'")    
+            # 6.스토리지 사용자에게  도착 완료 - ROS 구독
+            self.isArrived = False #스토리지 이동 완료 
+            while not self.isArrived:                  
+                # rp.spin_once(self)
+                rp.spin_once(self, timeout_sec=0.1)
+            
+           
+
+        ###########################################################################
+        # 스토리지 이동 요청지 - (프린터 외) 챗봇
+        # 스토리지 이동 목적지 - 사용자 자리 OR 홈 OR 복도
+        ###########################################################################
+        else:
+            # 1.스토리지 이동 요청 - ROS 발행
+            send_msg = RobotRequestMoving()
+            send_msg.request_system = msg.request_system  # 메시지 내용
+            send_msg.user_name = msg.user_name  # 메시지 내용   
+            #send_msg.positions = array('f',PositionDict[msg.user_name])# 메시지 내용 - 이동    
+            send_msg.positions = self.get_position_array(msg.user_name) # 메시지 내용 
+            self.request_move_publisher.publish(send_msg)        
+            self.get_logger().info('Publising : "%s", User Name: "%s"' % (send_msg.request_system, send_msg.user_name))
+            self.get_logger().info(f"Publishing Detail: '{send_msg}'")    
+            
+            
+            # 2.스토리지 도착 완료 - ROS 구독
+            self.isArrived = False #스토리지 이동 완료 
+            while not self.isArrived:
+                # rp.spin_once(self)
+                #pass
+                rp.spin_once(self, timeout_sec=0.1)
+ 
+        #이동 완료 후 상태값들 초기화
+        self.init_vars()
+
+        #마지막 사용자(복귀 명령어는 "")와 시간 저장
+        if self.ends_process(msg.user_name):
+            self.modify_last_user("")
+        else:
+            self.modify_last_user(msg.user_name)
+
     def ends_process(self, variable):
         """주어진 문자열이 '_B'로 끝나는지 확인하는 함수."""
         return variable.endswith('_B')
@@ -282,14 +407,29 @@ class TaskManager(Node):
         self.last_user_time = time.time() 
         print(f"마지막 사용자 : '{user}'(마지막 이용시간:{self.last_user_time})")   
 
-    def check_first_requester(self, user):
-        if self.task_queue:
-            return next(iter(self.task_queue[0].keys()))  == user.replace('_B', '')  
-        else:
-            self.get_logger().info("Task queue is empty.")
-            return      
+    # def check_first_requester(self, user):
+    #     if self.task_queue:
+    #         return next(iter(self.task_queue[0].keys()))  == user.replace('_B', '')  
+    #     else:
+    #         self.get_logger().info("Task queue is empty.")
+    #         return      
         
-          
+    def check_first_requester(self, user):
+        try:
+            if self.task_queue:    
+                first_task = self.task_queue[0]  # 첫 번째 큐
+                first_task_user = next(iter(first_task))  # 첫 번째 큐의 키 가져오기
+                return first_task_user.replace('_B', '') == user.replace('_B', '')
+            else:
+                self.get_logger().error(f"Unexpected data type in task_queue: {type(self.task_queue[0])}")
+                return False
+        except IndexError:
+            self.get_logger().warning("Task queue is empty.")
+            return False
+        except Exception as e:
+            self.get_logger().error(f"Error in check_first_requester: {e}")
+            return False
+
 
 
 
@@ -332,25 +472,42 @@ class TaskQueManager(Node):
         
     def task_scheduler(self):
        #현재 스토리지가 실행 중이 아니라면(isAvailable = True)
-        if self.task_manager.isAvailable:
-            #마지막 사용자와 que[0]에 사용자가 일치 하고, 시간이 waiting시간을 초과했다면 종료 , 종료 처리
-            if self.task_manager.check_first_requester(self.task_manager.last_user_name):
-                current_time = time.time()
-                # 시간 차이를 계산
-                time_difference = current_time - self.task_manager.last_user_time
 
-                if time_difference > waiting_time: 
-                    self.task_manager.excute_task("exit")
+        if self.task_manager.isAvailable :
+            if self.task_manager.task_queue:
+                # 첫 번째 큐의 키와 값 가져오기
+                first_task = self.task_manager.task_queue[0]  # 첫 번째 큐
+                first_task_user = next(iter(first_task))  # 첫 번째 큐의 키 가져오기
+                first_task_value = first_task[first_task_user]  # 해당 키에 대한 값 (객체) 가져오기
+
+
+                #마지막 사용자와 que[0]에 사용자가 일치 하고, 시간이 waiting시간을 초과했다면 종료 , 종료 처리
+                if self.task_manager.check_first_requester(self.task_manager.last_user_name):
+                    current_time = time.time()
+                    # 시간 차이를 계산
+                    time_difference = current_time - self.task_manager.last_user_time
+
+                    #스토리지 사용 종료 처리
+                    if time_difference > waiting_time:                  
+                        #self.task_manager.excute_task(next(iter(self.task_manager.task_queue[0].values())) , "exit")   
+                        self.task_manager.excute_task(first_task_value, "exit")   
+                        
+                    else:
+                        pass
+
+                #순차 처리  
                 else:
-                    pass
-
-            #순차 처리  
-            else:
-                self.task_manager.excute_task()
+                    #self.task_manager.excute_task(next(iter(self.task_manager.task_queue[0].values())) )   
+                    self.task_manager.excute_task(first_task_value)   
+            else : 
+                self.get_logger().info("Task queue is empty.")
+                pass
 
         else : 
+            self.get_logger().info("In use by another process")
             pass
         
+          
 def main(args=None):
     rp.init(args=args)
     task_manager = TaskManager()

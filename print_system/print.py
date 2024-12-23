@@ -37,8 +37,9 @@ class Printer:
         # 작업 상태 확인
             while True:
                 job_status = self.conn.getJobAttributes(job_id)
-                state = job_status['job-state']
-                
+                state = job_status['job-state'] #인쇄 상태
+                               
+
                 if state == 9:  # 작업 완료 (IPP_JOB_COMPLETED)
                     result = "프린터를 완료하였습니다."
                     print(f"작업 {job_id} 완료!")
@@ -55,7 +56,26 @@ class Printer:
                     self.delete_specific_file(file_path) #프린트 완료된 파일 삭제
                     break
                 else:
-                    print(f"작업 {job_id} 진행 중... 상태 코드: {state}")
+                    print(f"작업 {job_id} 진행 중... 상태 코드: {state}")    
+                     #프린터기의 상태
+                    printer_status = printers[self.printer_name]  
+                    state_message = printer_status.get('printer-state-message', 'Unknown')
+                    state_reasons = printer_status.get('printer-state-reasons', 'Unknown') 
+
+                    print(f"프린터 '{self.printer_name}' 상태: {state_message}")
+                    print(f"프린터 '{self.printer_name}' 이유: {state_reasons}")
+                    
+                    # Check for specific errors
+                    if "media-empty" in state_reasons:
+                        print("용지가 부족합니다! 프린터에 용지를 채워주세요.")
+                        result = "죄송합니다. 용지가 부족합니다! 프린터에 용지를 채워주세요."                       
+                        break
+
+                    elif "offline" in state_reasons:
+                        print("프린터가 오프라인 상태입니다.")
+                        result = "죄송합니다. 프린터가 오프라인 상태입니다."                        
+                        break
+
                     time.sleep(2)
         
         except Exception as e:
