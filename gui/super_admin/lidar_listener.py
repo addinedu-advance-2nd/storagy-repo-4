@@ -80,7 +80,7 @@ class LidarVisualization(Node, QWidget):
 
     def update_plot(self):
         if self.lidar_data is None:
-            print("No lidar data available")
+            #print("No lidar data available")
             return
 
         # Extract x, y, z from lidar data
