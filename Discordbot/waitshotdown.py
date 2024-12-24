@@ -85,7 +85,7 @@ class DiscordBot(Node):
         try:
             user = await bot.fetch_user(user_id)  # fetch_user로 사용자 객체 가져오기
             if user:
-                await user.send(f" 로봇 알림: {alert_message}")
+                await user.send(f"🚨로봇 알림: {alert_message}🔊")
                 self.get_logger().info(f"사용자 {user_name}({user_id})에게 알림 전송 완료.")
             else:
                 self.get_logger().error(f"사용자 {user_id}를 찾을 수 없습니다.")
@@ -161,7 +161,7 @@ async def robot_command(ctx, *, command=None):
         return
     user = ctx.author    #여기서 디스코드 사용자 정보 갖고 옴
     user_info = f"User: {user.name} ({user.id}), Nickname: {user.display_name}"  #사용자 닉네임
-    await ctx.send(f"로봇을 호출 하셨습니다. 잠시만 기다려 주세요")
+    await ctx.send(f"로봇을 호출 하셨습니다.🫡 잠시만 기다려 주세요.🚀")
     await ctx.send(f"You have called a robot. Please wait a moment.")    
     await send_to_robot( user.display_name)
     # await ctx.send(f"로봇 호출 완료!🎢")
@@ -267,7 +267,7 @@ async def print_file(ctx):
         except Exception as e:
             await ctx.send(f"파일 저장 중 오류 발생: {e}")
     else:
-        await ctx.send("파일이 없어 인쇄를 못합니다.")
+        await ctx.send("파일이 없어 인쇄를 못합니다.😮‍💨")
         await ctx.send("The file is missing, so printing is not possible.")
         
         
@@ -397,11 +397,9 @@ async def list(ctx):
     await ctx.send(response)
 
 custom_commands = {
-    "p": "프린터 요청" '\n Print request',
-    "c": "호출"'\n call',
-    "back": "로봇 제자리"'\n robot in place'
-    
-    # 필요한 다른 명령어 추가
+    "back": "robot in place" '\t(로봇 제자리)',
+    "p": "Print request" ' \t (프린터 요청)',
+    "c": "call"' \t(호출)' 
 }
 
 '''
