@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
-from control_msgs.msg import RobotRecevieMoving
+from control_msgs.msg import RobotRecevieMoving, AlertToChat
 from print import Printer  # printer 모듈 가져오기
 
 class PrintNode(Node):
@@ -21,7 +21,9 @@ class PrintNode(Node):
         # 발행 - 프린터 인쇄 완료
         self.publisher_print_complete = self.create_publisher(String, '/print_complete', 10) 
 
-       
+        # 발행 - 프린터 오류 ( = 디스코봇 채팅서버로 )
+        self.publisher_print_error = self.create_publisher(AlertToChat, '/alert_chat', 10) 
+
               
 
     def send_request_print_callback(self, user_name, file_path):       
@@ -56,16 +58,30 @@ class PrintNode(Node):
         result_msg = printer.print_file(msg.file_path)  # 프린터 모듈 사용
         
 
-        # 4. 프린터 인쇄 결과 ROS 발행 - ROS 발행(프린터->매니저)
+        # 4. 프린터 인쇄 결과 ROS 발행 - ROS 발행
         send_msg = String()
         if '완료' in result_msg :            
             send_msg.data = "complete" 
+            # 5A - TaskManger에 전달 인쇄 완료 전달
+            self.publisher_print_complete.publish(send_msg)
+            self.get_logger().info('Publishing publisher_print_complete: "%s"' % send_msg.data)   
+            self.get_logger().info(f"Publishing Detail: '{send_msg}'")
         else: 
             send_msg.data = "error" 
+            # 5B-1. TaskManger에 전달 인쇄 오류 전달
+            self.publisher_print_complete.publish(send_msg)            
+            self.get_logger().info(f"Publishing publisher_print_complete Detail: '{send_msg}'")
+
+            # 5B-2. 디스코봇 채팅봇에 오류 사항 전달
+            send_msg = AlertToChat()
+            send_msg.user_name = msg.user_name
+            send_msg.user_id = ""  # 메시지 내용     
+            self.publisher_print_error.publish(send_msg)           
+            self.get_logger().info(f"Publishing publisher_print_error Detail: '{send_msg}'")
       
-        self.publisher_print_complete.publish(send_msg)
-        self.get_logger().info('Publishing publisher_print_complete: "%s"' % send_msg.data)   
         self.isActive = False   
+
+        
 
 def main(args=None):
     rclpy.init(args=args)  # ROS 2 초기화

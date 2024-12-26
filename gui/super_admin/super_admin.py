@@ -9,6 +9,11 @@ import os
 import paramiko
 import re
 import pygame  # 조이스틱 입력 라이브러리
+import time
+import numpy as np
+from cv_bridge import CvBridge
+from sensor_msgs.msg import Image
+import matplotlib.pyplot as plt
 
 import subprocess
 from PyQt5 import QtWidgets, uic, QtGui, QtCore
@@ -27,7 +32,7 @@ from cam_stream import CamStream
 from battery_listener import BatteryListener
 from cmd_vel_listener import CmdVelListener
 from cam_stream import CameraThread
-from topic_tab import TopicTabView
+#from topic_tab import TopicTabView
 from motor_state_listener import MotorStateListener
 from odom_listener import OdomListener
 from cmd_vel_pub import CmdVelPub
@@ -36,18 +41,25 @@ from depth_scan_sub import DepthScanSubscriber
 from topic_viewer import TopicViewer
 from service_viewer import ServiceViewer
 from map_topic_listener import MapTopicListener
+from tf_listener import TfListener
+from depth_cam_listener import DepthCameraVisualization
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from lidar_listener import LidarVisualization
 
 
 #from gui.super_admin.super_topic import TopicSubscriber
 
-host = "192.168.0.179"  # 접속할 SSH 서버의 IP 주소나 도메인
+# Domain ID를 10으로 설정
+os.environ['ROS_DOMAIN_ID'] = '50'
+
+host = "192.168.0.33"  # 접속할 SSH 서버의 IP 주소나 도메인
 username = "storagy"  # SSH 접속에 사용할 사용자 이름
 password = "123412"   # SSH 접속에 사용할 비밀번호
 
 # ROS_DOMAIN_ID 환경 변수 읽기
-ros_domain_id = os.getenv("ROS_DOMAIN_ID", "Default Domain ID Not Set")
+#ros_domain_id = os.getenv("ROS_DOMAIN_ID", "Default Domain ID Not Set")
 
-print(f"ROS Domain ID: {ros_domain_id}")
+#print(f"ROS Domain ID: {ros_domain_id}")
 
 
 
@@ -128,10 +140,10 @@ class MainWindow(QMainWindow):
         self.nav_layout = QVBoxLayout()
         self.nav_tab.setLayout(self.nav_layout)
 
-        self.nav_tap_view = TopicTabView(self.nav_tab_page)  
+        #self.nav_tap_view = TopicViewer(self.nav_tab_page)  
 
         # topic_tab.ui를 main_tab에 추가
-        self.nav_layout.addWidget(self.nav_tap_view)
+        #self.nav_layout.addWidget(self.nav_tap_view)
 
         self.stylesheet_all()
 
@@ -146,21 +158,17 @@ class MainWindow(QMainWindow):
             self.service_layout = QVBoxLayout()
             self.service_tab.setLayout(self.service_layout)
         '''
-
-
-        # 타이머 설정 (주기적으로 갱신)
-        self.timer = QTimer()
-
-        self.timer.start(3000)  # 1초마다 실행
-
+        #ssh 연결 확인 함수 호출
+        #QTimer.singleShot(100, self.check_ssh_connection)  # 10초 후 세 번째 함수 호출
         # SSH 연결 확인을 위한 타이머 설정 (예시: 5초마다 연결 시도)
         self.timer_1 = QTimer(self)
         self.timer_1.timeout.connect(self.check_ssh_connection)
-        self.timer_1.start(30000)  # 30초마다 체크
+        self.timer_1.start(3000)  # 3초마다 체크
 
 
 
     def stylesheet_all(self):
+        
         # QMainWindow 스타일 설정
         self.setStyleSheet("""
             QMainWindow {
@@ -170,6 +178,10 @@ class MainWindow(QMainWindow):
             }
             
         """)
+
+        self.topic_tab.setStyleSheet("background-color: #212024;")
+        self.service_tab.setStyleSheet("background-color: #212024;")
+        self.nav_tab.setStyleSheet("background-color: #212024;")
 
 
         # QFrame 스타일시트 설정
@@ -192,6 +204,7 @@ class MainWindow(QMainWindow):
         self.s_admin.camera_frame.setStyleSheet(frame_style)
         self.s_admin.camera_frame_2.setStyleSheet(frame_style)
         self.s_admin.camera_frame_3.setStyleSheet(frame_style)
+        self.s_admin.tf_frame.setStyleSheet(frame_style)
 
         
         
@@ -203,7 +216,7 @@ class MainWindow(QMainWindow):
         # 글자 색상 설정
         labels = ["label_3", "label_6", "label_7", "checkBox", "keyboard_control_button", "joystick_control_button", "label_2",
                   "odom_2", "odom_3", "odom_4", "motor_state_2", "motor_r", "motor_l", "ssid", "ip" , "label_2", "label_8", "rgb_cam_view",
-                  "label_11", "dep_cam_view", "label_12", "lidar_view"
+                  "label_11", "dep_cam_view", "label_12", "lidar_view", "map", "map_1", "map_2"
                   ]
 
         for label_name in labels:
@@ -218,7 +231,8 @@ class MainWindow(QMainWindow):
         self.s_admin.cmd_vel_4.setStyleSheet("color: white;")
 
         labels_32 = ["odom_pos_x", "odom_pos_y", "odom_pos_z", "odom_ori_x", "odom_ori_y", "odom_ori_z", "odom_ori_w", 
-                     "motor_r_A", "motor_r_Nm", "motor_l_A", "motor_l_Nm", "battery_voltage", "cmd_vel_x", "cmd_vel_z"
+                     "motor_r_A", "motor_r_Nm", "motor_l_A", "motor_l_Nm", "battery_voltage", "cmd_vel_x", "cmd_vel_z",
+                     "tf_pos_x", "tf_pos_y", "tf_pos_z", "tf_ori_x", "tf_ori_y", "tf_ori_z", "tf_ori_w"
             ]
 
         for label_name_32 in labels_32:
@@ -337,6 +351,47 @@ class MainWindow(QMainWindow):
             self.cam_stream.stop()
             del self.cam_stream
 
+    
+
+    def view_3d_dep_checkbox(self, state):
+        print(state)
+
+        # 'view_3d_dep' 위젯 찾기
+        self.view_3d_dep = self.s_admin.findChild(QWidget, "view_3d_dep")
+
+        if self.view_3d_dep is None:
+            raise ValueError("Error: 'view_3d_dep' widget not found. Check the UI file and widget name.")
+
+        if state == 2:  # 체크박스 선택 상태
+            if self.view_3d_dep.layout() is None:
+                # 새로운 레이아웃 설정
+                print("Setting new layout for 'view_3d_dep'.")
+                self.view_3d_dep_layout = QVBoxLayout(self.view_3d_dep)
+                self.view_3d_dep.setLayout(self.view_3d_dep_layout)
+            else:
+                # 기존 레이아웃 참조
+                self.view_3d_dep_layout = self.view_3d_dep.layout()
+
+            # DepthCameraVisualization 인스턴스 추가 (중복 방지)
+            if not hasattr(self, 'depth_cam') or self.depth_cam is None:
+                self.depth_cam = DepthCameraVisualization(self.s_admin)
+                #self.depth_cam = ROS2Thread(DepthCameraVisualization, self.s_admin)
+                #self.depth_cam.start()
+                #self.view_3d_dep_layout.addWidget(self.depth_cam)
+
+        else:  # 체크박스 해제 상태
+            if hasattr(self, 'depth_cam') and self.depth_cam is not None:
+                # DepthCameraVisualization 위젯 삭제
+                self.view_3d_dep_layout.removeWidget(self.depth_cam)
+                self.depth_cam.deleteLater()
+
+                # DepthCameraVisualization 노드 종료
+                self.depth_cam.destroy_node()
+                self.depth_cam = None
+
+                # 필요 시 레이아웃도 삭제 (레이아웃을 완전히 제거하고 새로 설정 가능)
+                self.view_3d_dep.setLayout(None)
+
     def view_3d_lidar_checkbox(self, state):
         #위젯 찾기
         self.view_3d_lidar = self.s_admin.findChild(QWidget, "view_3d_lidar")
@@ -354,9 +409,9 @@ class MainWindow(QMainWindow):
                 self.view_3d_dep_layout = self.view_3d_lidar.layout()
 
             self.view_3d_lidar_layout = self.view_3d_lidar.layout()
-            self.imu_widget_lidar = IMUVisualization("lidar")
+            self.imu_widget_lidar = LidarVisualization(self.s_admin)
             #self.imu_widget_lidar = DepthScanSubscriber(self.s_admin, "/scan")
-            self.view_3d_lidar_layout.addWidget(self.imu_widget_lidar)
+            #self.view_3d_lidar_layout.addWidget(self.imu_widget_lidar)
         else:
             if self.view_3d_dep.layout() is not None:
                 # 레이아웃의 모든 위젯 제거
@@ -369,37 +424,7 @@ class MainWindow(QMainWindow):
                 #print("All widgets removed from 'view_3d_dep'.")
 
 
-    def view_3d_dep_checkbox(self, state):
-        print(state)
-        #위젯 찾기
-        self.view_3d_dep = self.s_admin.findChild(QWidget, "view_3d_dep")
 
-        if self.view_3d_dep is None:
-            raise ValueError("Error: 'view_3d_dep' widget not found. Check the UI file and widget name.")
-
-        if state == 2:
-            # 레이아웃 가져오기 또는 새로 설정
-            if self.view_3d_dep.layout() is None:
-                print("Setting new layout for 'view_3d_2'.")
-                self.view_3d_dep_layout = QVBoxLayout(self.view_3d_dep)  # QVBoxLayout 또는 원하는 레이아웃 사용
-                self.view_3d_dep.setLayout(self.view_3d_dep_layout)
-            else:
-                self.view_3d_dep_layout = self.view_3d_dep.layout()
-
-            self.view_3d_dep_layout = self.view_3d_dep.layout()
-            self.imu_widget_dep = IMUVisualization("depth_camera")
-            #self.imu_widget_lidar = DepthScanSubscriber("/camera/depth/image_raw")
-            self.view_3d_dep_layout.addWidget(self.imu_widget_dep)
-        else:
-            if self.view_3d_dep.layout() is not None:
-                # 레이아웃의 모든 위젯 제거
-                while self.view_3d_dep_layout.count():
-                    item = self.view_3d_dep_layout.takeAt(0)
-                    widget = item.widget()
-                    if widget is not None:
-                        self.view_3d_dep_layout.removeWidget(widget)  # 레이아웃에서 제거
-                        widget.deleteLater()  # 메모리에서 삭제
-                #print("All widgets removed from 'view_3d_dep'.")
 
     def list_topics(self):
         # 활성화된 토픽들의 이름과 타입을 가져옴
@@ -504,11 +529,14 @@ class MainWindow(QMainWindow):
         # IP 주소 읽어오기
         stdin, stdout, stderr = ssh.exec_command('ip a')
         ip_info = stdout.read().decode('utf-8')
-        
+
+        time.sleep(5)
         # IP 주소 추출 (예: 'inet 192.168.1.100' 부분을 찾기)
         ip_lines = [line for line in ip_info.splitlines() if 'inet ' in line]
         #ip_address = ip_lines[0].split()[1] if ip_lines else 'IP not found'
         #print(ip_address)
+
+        
         ip_addresses = []
         for line in ip_lines:
             # "inet" 뒤에 있는 IP 주소 부분만 추출
@@ -540,6 +568,88 @@ class ROS2Thread(QThread):
             executor.spin_once(timeout_sec=0.1)  # spin_once() 사용
         node.destroy_node()
         rp.shutdown()
+
+'''
+class DepthCameraVisualization(Node, QWidget):
+    def __init__(self):
+        Node.__init__(self, 'depth_camera_visualization')
+        QWidget.__init__(self)
+
+        self.bridge = CvBridge()
+        self.depth_data = None
+
+        # ROS2 Subscriber
+        self.depth_subscriber = self.create_subscription(
+            Image,
+            '/camera/depth/image_raw',
+            self.depth_callback,
+            1
+        )
+
+        # PyQt5 UI setup
+        self.setWindowTitle("Depth Camera 3D Visualization")
+        self.setGeometry(100, 100, 800, 600)
+
+        # Matplotlib setup
+        self.figure = plt.figure()
+        self.ax = self.figure.add_subplot(111, projection='3d')
+        self.ax.set_xlabel('X')
+        self.ax.set_ylabel('Y')
+        self.ax.set_zlabel('Depth')
+
+        #뷰 각도 변경
+        self.ax.view_init(azim=30, elev=15)
+
+        # Canvas for Matplotlib
+        self.canvas = FigureCanvasQTAgg(self.figure)
+        layout = QVBoxLayout()
+        layout.addWidget(self.canvas)
+        self.setLayout(layout)
+
+        # Timer for updating the plot
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_plot)
+        self.timer.start(100)  # Update every 100ms
+
+    def depth_callback(self, msg):
+        # Convert ROS2 Image message to OpenCV format
+        cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
+        self.depth_data = cv_image
+
+    def update_plot(self):
+        if self.depth_data is None:
+            return
+
+        # Generate 3D points from depth data
+        h, w = self.depth_data.shape
+        x = np.linspace(-w / 2, w / 2, w)
+        y = np.linspace(-h / 2, h / 2, h)
+        xv, yv = np.meshgrid(x, y)
+        zv = self.depth_data
+
+        self.ax.clear()
+        self.ax.set_xlabel('X')
+        self.ax.set_ylabel('Y')
+        self.ax.set_zlabel('Depth')
+
+        # Subsample for faster rendering
+        subsample = 10
+        self.ax.scatter(xv[::subsample, ::subsample],
+                        yv[::subsample, ::subsample],
+                        zv[::subsample, ::subsample],
+                        c=zv[::subsample, ::subsample], cmap='viridis', s=1)
+        
+         # Plot red point at the origin
+        self.ax.scatter([0], [0], [0], c='red', s=50, label="Origin")
+                
+        # Add legend
+        self.ax.legend()
+
+        # Update plot title and refresh canvas
+        self.ax.set_title("3D Camera depth")
+        
+        self.canvas.draw()
+    '''
 
 
 def main():
@@ -584,6 +694,9 @@ def main():
 
     odom_thread = ROS2Thread(OdomListener, s_admin)
     odom_thread.start()
+
+    tf_thread = ROS2Thread(TfListener, s_admin)
+    tf_thread.start()
 
     #map_thread = ROS2Thread(MapTopicListener, s_admin)
     #map_thread.start()

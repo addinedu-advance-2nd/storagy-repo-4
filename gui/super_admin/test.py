@@ -1,110 +1,76 @@
 import sys
-import numpy as np
-import matplotlib.pyplot as plt
-from PyQt5.QtWidgets import QApplication, QLabel, QVBoxLayout, QPushButton, QWidget
-from PyQt5.QtCore import QObject, QThread, pyqtSignal
 import rclpy
 from rclpy.node import Node
-from nav_msgs.msg import OccupancyGrid
+from sensor_msgs.msg import LaserScan
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
+from PyQt5.QtCore import Qt
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from mpl_toolkits.mplot3d import Axes3D
+import numpy as np
 
+class ScanSubscriber(Node):
+    def __init__(self, label, ax):
+        super().__init__('scan_subscriber')
+        self.label = label
+        self.ax = ax
+        self.create_subscription(LaserScan, '/scan', self.scan_callback, 1)
 
-# ROS Node Wrapper with PyQt QObject
-class MapSubscriberNode(QObject):
-    map_received = pyqtSignal(object)  # PyQt 시그널
-
-    def __init__(self):
-        super().__init__()
-        rclpy.init()
-        self.ros_node = Node('map_subscriber_node')
-        self.subscription = self.ros_node.create_subscription(
-            OccupancyGrid,
-            '/map',
-            self.map_callback,
-            10
-        )
-        self.ros_thread = QThread()
-        self.moveToThread(self.ros_thread)
-        self.ros_thread.started.connect(self.spin_ros_node)
-        self.ros_thread.start()
-
-    def map_callback(self, msg):
-        self.map_received.emit(msg)  # PyQt 시그널로 메시지 전달
-
-    def spin_ros_node(self):
-        try:
-            rclpy.spin(self.ros_node)  # ROS 2 이벤트 루프 실행
-        except Exception as e:
-            print(f"Error in ROS spin: {e}")
-
-    def stop(self):
-        self.ros_node.destroy_node()
-        rclpy.shutdown()
-        self.ros_thread.quit()
-        self.ros_thread.wait()
-
-
-# PyQt5 MainWindow
-class MainWindow(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.init_ui()
-
-    def init_ui(self):
-        self.setWindowTitle("ROS 2 Map Subscriber with Heatmap")
-        self.resize(800, 600)
-
-        self.label = QLabel("Waiting for map data...", self)
-        self.show_heatmap_btn = QPushButton("Show Heatmap", self)
-        self.show_heatmap_btn.setEnabled(False)
-
-        layout = QVBoxLayout()
-        layout.addWidget(self.label)
-        layout.addWidget(self.show_heatmap_btn)
-        self.setLayout(layout)
-
-        # ROS Node 초기화
-        self.ros_node = MapSubscriberNode()
-        self.ros_node.map_received.connect(self.handle_map_data)
-
-        # 버튼 이벤트
-        self.show_heatmap_btn.clicked.connect(self.show_heatmap)
+    def scan_callback(self, msg):
+        # Convert the ranges to Cartesian coordinates
+        ranges = np.array(msg.ranges)
+        angles = np.linspace(msg.angle_min, msg.angle_max, len(ranges))
         
+        # Calculate x and y from polar coordinates
+        x = ranges * np.cos(angles)
+        y = ranges * np.sin(angles)
+        z = np.zeros_like(x)  # 2D scan, so z = 0
 
-        self.current_map_data = None
+        # Clear the plot and plot the new scan data
+        self.ax.cla()  # Clear the axes
+        self.ax.scatter(x, y, z, c=z, cmap='viridis', marker='o')
+        self.ax.set_xlabel('X')
+        self.ax.set_ylabel('Y')
+        self.ax.set_zlabel('Z')
+        self.ax.set_title("3D Laser Scan Visualization")
 
-    def handle_map_data(self, msg):
-        self.label.setText("Map data received!")
-        self.current_map_data = msg  # 메시지 저장
-        self.show_heatmap_btn.setEnabled(True)
+        # Redraw the plot
+        self.ax.figure.canvas.draw()
 
-    def show_heatmap(self):
-        if self.current_map_data is not None:
-            self.visualize_map(self.current_map_data)
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
 
-    def visualize_map(self, msg):
-        width = msg.info.width
-        height = msg.info.height
+        self.setWindowTitle("Laser Scan Data 3D Visualization")
+        self.setGeometry(100, 100, 800, 600)
 
-        # OccupancyGrid 데이터를 2D 배열로 변환
-        map_data = np.array(msg.data).reshape((height, width))
+        # Set up the layout and the central widget
+        self.central_widget = QWidget(self)
+        self.setCentralWidget(self.central_widget)
+        layout = QVBoxLayout(self.central_widget)
 
-        # 히트맵 시각화
-        plt.figure(figsize=(10, 8))
-        plt.imshow(map_data, cmap='gray', origin='lower')
-        plt.colorbar(label='Cell Value')
-        plt.title('Map Heatmap')
-        plt.xlabel('X-axis')
-        plt.ylabel('Y-axis')
-        plt.show()
+        # Create a Matplotlib figure and 3D axis
+        self.figure = plt.figure()
+        self.ax = self.figure.add_subplot(111, projection='3d')
+
+        # Create a canvas for embedding the plot in the PyQt window
+        self.canvas = FigureCanvas(self.figure)
+        layout.addWidget(self.canvas)
+
+        # Initialize ROS and the scan subscriber
+        rclpy.init()
+        self.scan_subscriber = ScanSubscriber(self.central_widget, self.ax)
+
+        self.show()
 
     def closeEvent(self, event):
-        # 종료 시 ROS 노드 정리
-        self.ros_node.stop()
-        super().closeEvent(event)
+        rclpy.shutdown()
+        event.accept()
 
-
-if __name__ == "__main__":
+def main():
     app = QApplication(sys.argv)
-    main_window = MainWindow()
-    main_window.show()
+    window = MainWindow()
     sys.exit(app.exec_())
+
+if __name__ == '__main__':
+    main()
