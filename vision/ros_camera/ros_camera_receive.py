@@ -7,7 +7,7 @@ import math
 
 import rclpy as rp
 from rclpy.node import Node
-from control_msgs.msg import ArucoPose
+# from control_msgs.msg import ArucoPose
 
 ip = '192.168.0.179'
 port = 50001       
@@ -31,21 +31,21 @@ def rotMat2degree(rotation_matrix):
     
     return x, y, z
 
-class ArucoPosePublisher(Node):
-    def __init__(self):
-        super().__init__('aruco_pose_publisher')
-        self.publisher = self.create_publisher(ArucoPose, '/aruco_pose', 10)
+# class ArucoPosePublisher(Node):
+#     def __init__(self):
+#         super().__init__('aruco_pose_publisher')
+#         self.publisher = self.create_publisher(ArucoPose, '/aruco_pose', 10)
     
-    def send_aruco_pose(self, id, tvecs, angles):
-        msg = ArucoPose()
-        msg.id = id
-        msg.tvecs = tvecs
-        msg.angles = angles
-        self.publisher.publish(msg)
+#     def send_aruco_pose(self, id, tvecs, angles):
+#         msg = ArucoPose()
+#         msg.id = id
+#         msg.tvecs = tvecs
+#         msg.angles = angles
+#         self.publisher.publish(msg)
 
 
 rp.init()
-aruco_pose_node = ArucoPosePublisher()
+# aruco_pose_node = ArucoPosePublisher()
 
 calib_data_path = "vision/calib_data/MultiMatrix.npz"
 
@@ -103,7 +103,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
                 print(f'angle : {rotation_degree}')
                 print(rvecs)
 
-                aruco_pose_node.send_aruco_pose(id, tvecs, rotation_degree)
+                # aruco_pose_node.send_aruco_pose(id, tvecs, rotation_degree)
 
         cv2.imshow('Frame', frame)
 
